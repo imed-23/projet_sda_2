@@ -615,13 +615,25 @@ listeg _plusLongSuffixe(GDM* g, CarUTF8* s, Nat len_mot, Nat max_suffixe, Nat* l
 // adjMot - Ajoute un mot
 // ============================================================================
 
+
 None adjMot(GDM* g, CarUTF8* s) {
     if (g == NULL || s == NULL) return;
     Nat mot_len = chaineUTF8Longueur(s);
     if (mot_len == 0) return;
 
+    // Cas mot d'un seul caractère
     if (mot_len == 1) {
-        Noeud iso = existeNoeud(g, s[0], true, true);
+        Nat h = s[0] % N_ASCII;
+        Noeud iso = NULL;
+        listeg lists[] = {g->racines[h], g->feuilles[h], g->isole[h], g->interne[h]};
+        for (int j = 0; j < 4 && iso == NULL; j++) {
+            listeg cur = lists[j];
+            while (cur) {
+                Noeud n = (Noeud)cur->data;
+                if (n->car == s[0]) { iso = n; break; }
+                cur = cur->succ;
+            }
+        }
         if (iso == NULL) {
             iso = nouvNoeud(s[0]);
             if (iso == NULL) return;
@@ -632,6 +644,7 @@ None adjMot(GDM* g, CarUTF8* s) {
         return;
     }
 
+    // Si le mot existe déjà, incrémenter compteurs
     listeg deja = existeMot(g, s);
     if (!videlg(deja)) {
         _incrementeCompteurs(deja);
@@ -641,97 +654,111 @@ None adjMot(GDM* g, CarUTF8* s) {
         return;
     }
 
+    // --- Trouver le plus long préfixe existant ---
     Nat lp = 0;
     listeg prefixe = _plusLongPrefixe(g, s, mot_len, &lp);
 
+    // Pas de partage de suffixe (évite les effets de bord / mots inexistants)
     Nat ls = 0;
-    Nat max_suffixe = mot_len - lp;
-    listeg suffixe = _plusLongSuffixe(g, s, mot_len, max_suffixe, &ls);
+    listeg suffixe = NULL;
 
-    // Si prefixe+suffixe couvrent tout le mot, un raccord direct peut introduire un cycle.
-    if (lp > 0 && ls > 0 && lp + ls == mot_len) {
-        Noeud fin_prefixe = _queueNoeud(prefixe);
-        Noeud debut_suffixe = (Noeud)tetelg(suffixe);
-        Bool raccord_risque = false;
-        if (fin_prefixe == debut_suffixe) raccord_risque = true;
-        if (!raccord_risque && _existeCheminNoeud(debut_suffixe, fin_prefixe)) raccord_risque = true;
+    // Construire le tableau du chemin complet
+    Noeud chemin[26];
+    for (Nat i = 0; i < mot_len && i < 26; i++) chemin[i] = NULL;
 
-        if (raccord_risque) {
-            Nat new_lp = 0;
-            if (lp > 0) new_lp = lp - 1;
-
-            detruirelg(prefixe);
-            prefixe = NULL;
-            lp = 0;
-
-            if (new_lp > 0) {
-                prefixe = _trouvePrefixeLongueur(g, s, new_lp, mot_len);
-                if (prefixe != NULL) lp = new_lp;
-            }
-
-            max_suffixe = mot_len - lp;
-            detruirelg(suffixe);
-            suffixe = _plusLongSuffixe(g, s, mot_len, max_suffixe, &ls);
+    // Remplir les nœuds du préfixe
+    if (prefixe != NULL) {
+        listeg cur = prefixe;
+        Nat idx = 0;
+        while (cur != NULL && idx < lp) {
+            chemin[idx] = (Noeud)cur->data;
+            cur = cur->succ;
+            idx++;
         }
     }
 
-    Noeud prev = _queueNoeud(prefixe);
+    // Remplir les nœuds du suffixe
+    if (suffixe != NULL) {
+        listeg cur = suffixe;
+        Nat idx = mot_len - ls;
+        while (cur != NULL && idx < mot_len) {
+            chemin[idx] = (Noeud)cur->data;
+            cur = cur->succ;
+            idx++;
+        }
+    }
 
-    Nat i = lp;
-    while (i < mot_len - ls) {
+    // Si pas de préfixe, créer ou trouver le nœud racine
+    if (lp == 0) {
+        Nat h0 = s[0] % N_ASCII;
+        Noeud premier = NULL;
+        listeg cur = g->racines[h0];
+        while (cur) {
+            Noeud n = (Noeud)cur->data;
+            if (n->car == s[0]) { premier = n; break; }
+            cur = cur->succ;
+        }
+        if (premier == NULL) {
+            cur = g->isole[h0];
+            while (cur) {
+                Noeud n = (Noeud)cur->data;
+                if (n->car == s[0]) { premier = n; break; }
+                cur = cur->succ;
+            }
+        }
+        if (premier == NULL) {
+            premier = nouvNoeud(s[0]);
+            if (premier == NULL) { detruirelg(prefixe); detruirelg(suffixe); return; }
+            g->racines[hashNoeud(premier)] = adjtetelg(g->racines[hashNoeud(premier)], premier);
+        }
+        chemin[0] = premier;
+        lp = 1;
+    }
+
+    // Créer les nœuds manquants (entre préfixe et fin)
+    Nat gap_end = mot_len - ls;
+    for (Nat i = lp; i < gap_end; i++) {
         Noeud n = nouvNoeud(s[i]);
-        if (n == NULL) {
-            detruirelg(prefixe);
-            detruirelg(suffixe);
-            return;
-        }
-        g->isole[hashNoeud(n)] = adjtetelg(g->isole[hashNoeud(n)], n);
-
-        if (prev != NULL) _ajouteArcEtMaj(g, prev, n);
-        prev = n;
-        i++;
+        if (n == NULL) { detruirelg(prefixe); detruirelg(suffixe); return; }
+        chemin[i] = n;
+        Nat h = hashNoeud(n);
+        g->isole[h] = adjtetelg(g->isole[h], n);
     }
 
-    if (suffixe != NULL && prev != NULL) {
-        Nat ls_local = ls;
-        Bool raccord_ok = false;
-
-        while (!raccord_ok && suffixe != NULL && prev != NULL) {
-            Noeud debut_suffixe = (Noeud)tetelg(suffixe);
-
-            if (_ajouteArcEtMaj(g, prev, debut_suffixe)) {
-                raccord_ok = true;
-            } else {
-                Nat idx = mot_len - ls_local;
-                if (idx < mot_len) {
-                    Noeud n = nouvNoeud(s[idx]);
-                    if (n == NULL) {
-                        detruirelg(prefixe);
-                        detruirelg(suffixe);
-                        return;
-                    }
-                    g->isole[hashNoeud(n)] = adjtetelg(g->isole[hashNoeud(n)], n);
-                    _ajouteArcEtMaj(g, prev, n);
-                    prev = n;
-                }
-
-                if (ls_local > 0) ls_local--;
-                detruirelg(suffixe);
-                suffixe = NULL;
-                if (ls_local > 0) suffixe = _trouveSuffixeLongueur(g, s, mot_len, ls_local);
+    // Vérifier si la connexion gap->suffixe créerait un cycle
+    if (ls > 0 && gap_end > 0 && chemin[gap_end - 1] != NULL && chemin[gap_end] != NULL) {
+        if (_existeCheminNoeud(chemin[gap_end], chemin[gap_end - 1])) {
+            // Cycle détecté : abandonner le suffixe, créer des nœuds frais
+            for (Nat i = gap_end; i < mot_len; i++) {
+                Noeud n = nouvNoeud(s[i]);
+                if (n == NULL) { detruirelg(prefixe); detruirelg(suffixe); return; }
+                chemin[i] = n;
+                Nat h = hashNoeud(n);
+                g->isole[h] = adjtetelg(g->isole[h], n);
             }
         }
-
-        ls = ls_local;
     }
 
-    listeg ajoute = _trouvePrefixeLongueur(g, s, mot_len, mot_len);
-    if (!videlg(ajoute)) {
-        _incrementeCompteurs(ajoute);
-        Noeud fin = _queueNoeud(ajoute);
-        if (fin != NULL) fin->fin++;
-        detruirelg(ajoute);
+    // Connecter tous les nœuds consécutifs qui ne sont pas encore connectés
+    for (Nat i = 0; i < mot_len - 1; i++) {
+        Noeud nx = chemin[i];
+        Noeud ny = chemin[i + 1];
+        if (nx == NULL || ny == NULL) continue;
+        if (elemlg(nx->lsucc, ny) == NULL) {
+            nx->lsucc = adjtetelg(nx->lsucc, ny);
+            ny->lpred = adjtetelg(ny->lpred, nx);
+            _updateNodeCategory(g, nx);
+            _updateNodeCategory(g, ny);
+        }
     }
+
+    // Incrémenter les compteurs pour tous les nœuds du chemin
+    for (Nat i = 0; i < mot_len; i++) {
+        if (chemin[i] != NULL) chemin[i]->count++;
+    }
+
+    // Marquer la fin du mot
+    if (chemin[mot_len - 1] != NULL) chemin[mot_len - 1]->fin++;
 
     detruirelg(prefixe);
     detruirelg(suffixe);
@@ -832,7 +859,7 @@ None _dfs_completion(Noeud n, listeg prefix, Nat depth, listeg mots[], Nat* nc, 
     if (n == NULL || *nc >= max) return;
     (void)depth;
 
-    if (estFeuille(n)) {
+    if (n->fin > 0) {
         mots[*nc] = clonelg(prefix);
         (*nc)++;
         if (*nc >= max) return;
@@ -893,7 +920,7 @@ int main() {
         CarUTF8* s = enChaineUTF8(m[i], &lg, &ni);
         printf("adj   %d: %s -> %d (invalid:%d)\n", i, m[i], lg, ni);
         adjMot(&g, s);
-        printf("DBG step %u: N=%u R=%u F=%u A=%u\n", i, nbNoeuds(&g), nbRacines(&g), nbFeuilles(&g), nbArcs(&g));
+
         FREE(s);
     }
     printf("GDM nracines:%d\n", nbRacines(&g));
