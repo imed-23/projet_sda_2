@@ -208,13 +208,14 @@ Nat longueurlg(listeg l) {
 typedef struct snoeud {
     CarUTF8 car;
     Nat count;
+    Nat fin;
     listeg lsucc, lpred;
 } *Noeud;
 
 Noeud nouvNoeud(CarUTF8 c) {
     Noeud n = MALLOC(struct snoeud);
     if (n == NULL) return NULL;
-    n->car = c; n->count = 0;
+    n->car = c; n->count = 0; n->fin = 0;
     n->lsucc = nouvlg(); n->lpred = nouvlg();
     return n;
 }
@@ -369,6 +370,27 @@ Nat nbArcs(GDM* g) {
         Noeud n = (Noeud)cur_node->data;
         count += longueurlg(n->lsucc);
         cur_node = cur_node->succ;
+    }
+    detruirelg(all_nodes);
+    return count;
+}
+
+Nat nbNoeuds(GDM* g) {
+    Nat count = 0;
+    listeg all_nodes = nouvlg();
+    for (Nat i = 0; i < N_ASCII; i++) {
+        listeg lists[] = {g->racines[i], g->feuilles[i], g->isole[i], g->interne[i]};
+        for (int j = 0; j < 4; j++) {
+            listeg cur = lists[j];
+            while (cur) {
+                Noeud n = (Noeud)cur->data;
+                if (!elemlg(all_nodes, n)) {
+                    all_nodes = adjtetelg(all_nodes, n);
+                    count++;
+                }
+                cur = cur->succ;
+            }
+        }
     }
     detruirelg(all_nodes);
     return count;
@@ -606,12 +628,15 @@ None adjMot(GDM* g, CarUTF8* s) {
             g->isole[hashNoeud(iso)] = adjtetelg(g->isole[hashNoeud(iso)], iso);
         }
         iso->count++;
+        iso->fin++;
         return;
     }
 
     listeg deja = existeMot(g, s);
     if (!videlg(deja)) {
         _incrementeCompteurs(deja);
+        Noeud fin = _queueNoeud(deja);
+        if (fin != NULL) fin->fin++;
         detruirelg(deja);
         return;
     }
@@ -651,6 +676,7 @@ None adjMot(GDM* g, CarUTF8* s) {
     }
 
     Noeud prev = _queueNoeud(prefixe);
+
     Nat i = lp;
     while (i < mot_len - ls) {
         Noeud n = nouvNoeud(s[i]);
@@ -660,6 +686,7 @@ None adjMot(GDM* g, CarUTF8* s) {
             return;
         }
         g->isole[hashNoeud(n)] = adjtetelg(g->isole[hashNoeud(n)], n);
+
         if (prev != NULL) _ajouteArcEtMaj(g, prev, n);
         prev = n;
         i++;
@@ -671,6 +698,7 @@ None adjMot(GDM* g, CarUTF8* s) {
 
         while (!raccord_ok && suffixe != NULL && prev != NULL) {
             Noeud debut_suffixe = (Noeud)tetelg(suffixe);
+
             if (_ajouteArcEtMaj(g, prev, debut_suffixe)) {
                 raccord_ok = true;
             } else {
@@ -697,9 +725,11 @@ None adjMot(GDM* g, CarUTF8* s) {
         ls = ls_local;
     }
 
-    listeg ajoute = existeMot(g, s);
+    listeg ajoute = _trouvePrefixeLongueur(g, s, mot_len, mot_len);
     if (!videlg(ajoute)) {
         _incrementeCompteurs(ajoute);
+        Noeud fin = _queueNoeud(ajoute);
+        if (fin != NULL) fin->fin++;
         detruirelg(ajoute);
     }
 
@@ -713,7 +743,10 @@ None adjMot(GDM* g, CarUTF8* s) {
 
 listeg _existeMot_rec(Noeud current, CarUTF8* s, Nat pos, Nat len) {
     // Fin du mot: retourner sentinelle non-NULL pour indiquer succès
-    if (pos >= len) return adjtetelg(NULL, (Joker)0x1);
+    if (pos >= len) {
+        if (current != NULL && current->fin > 0) return adjtetelg(NULL, (Joker)0x1);
+        return NULL;
+    }
     
     CarUTF8 c = s[pos];
     listeg cur = current->lsucc;
@@ -760,10 +793,7 @@ listeg existeMot(GDM* g, CarUTF8* s) {
                         FREE(sentinel);
                     }
                     result = adjtetelg(result, n);
-                    listeg tmp2 = result;
-                    while (tmp2 && tmp2->succ) tmp2 = tmp2->succ;
-                    if (tmp2 && estFeuille((Noeud)tmp2->data)) return result;
-                    detruirelg(result);
+                    return result;
                 }
             }
             cur = cur->succ;
@@ -801,13 +831,13 @@ Nat completion(GDM* g, CarUTF8* s, listeg mots[], Nat max) {
 None _dfs_completion(Noeud n, listeg prefix, Nat depth, listeg mots[], Nat* nc, Nat max) {
     if (n == NULL || *nc >= max) return;
     (void)depth;
-    
+
     if (estFeuille(n)) {
         mots[*nc] = clonelg(prefix);
         (*nc)++;
         if (*nc >= max) return;
     }
-    
+
     listeg succ = n->lsucc;
     while (succ != NULL && *nc < max) {
         Noeud child = (Noeud)succ->data;
@@ -863,6 +893,7 @@ int main() {
         CarUTF8* s = enChaineUTF8(m[i], &lg, &ni);
         printf("adj   %d: %s -> %d (invalid:%d)\n", i, m[i], lg, ni);
         adjMot(&g, s);
+        printf("DBG step %u: N=%u R=%u F=%u A=%u\n", i, nbNoeuds(&g), nbRacines(&g), nbFeuilles(&g), nbArcs(&g));
         FREE(s);
     }
     printf("GDM nracines:%d\n", nbRacines(&g));
