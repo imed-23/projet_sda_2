@@ -13,6 +13,27 @@ Avant chaque question, correction ou ajout de code:
 Règle de validation:
 - Une modification est acceptable seulement si elle respecte les consignes du README et n'introduit pas d'écart avec les résultats attendus.
 
+## Note d'évaluation (prof)
+
+Point communiqué par l'enseignant:
+
+- Pour le test complet, les statistiques de structure (`nracines`, `nfeuilles`, `nInterne`, `nArcs`) peuvent varier selon la stratégie de construction du graphe, car le GDM n'est pas unique.
+- Une valeur plus faible de noeuds/arcs peut donc être acceptable.
+- En revanche, les effets de bord ne sont pas acceptables: la structure ne doit pas faire apparaître des mots qui n'existent pas dans le texte.
+
+Conséquence pratique:
+
+- Ne pas juger uniquement les statistiques.
+- Vérifier prioritairement l'absence de mots parasites (notamment via `existeMot` et `completion`).
+
+Checklist complémentaire (à faire après chaque changement):
+
+1. Compiler: `gcc -Wall -Wextra -std=c11 gdm.c -o gdm`
+2. Exécuter: `./gdm > out.txt`
+3. Comparer: `diff -u "resultat .txt" out.txt`
+4. Vérifier les mots: les mots annoncés comme existants doivent être réellement présents dans `texte.txt`.
+5. Vérifier la complétion: ne pas générer de recombinaisons invalides.
+
 Le projet SDA2 vise à implémenter un Graphe de Mots (GDM) en langage C. Ce GDM permettra de stocker et de manipuler des mots, en tenant compte des caractères UTF-8. Les composants clés incluent la gestion des caractères UTF-8, une structure de liste générique (listeg), et l'implémentation des nœuds et des opérations du GDM.
 
 2. Architecture du Projet
