@@ -839,12 +839,59 @@ None adjMot(GDM* g, CarUTF8* s) {
     Nat lp = 0;
     listeg prefixe = _plusLongPrefixe(g, s, mot_len, &lp);
 
-    // --- Trouver le plus long suffixe (limité par le préfixe) ---
+    // --- Trouver le plus long suffixe valide (cycle/overlap free) ---
     Nat ls = 0;
     listeg suffixe = NULL;
     Nat max_suffix = mot_len - lp;
+    
     if (max_suffix > 0) {
-        suffixe = _plusLongSuffixe(g, s, mot_len, max_suffix, &ls);
+        for (Nat cand_ls = max_suffix; cand_ls > 0; cand_ls--) {
+            Nat current_ls = 0;
+            listeg cand_suf = _plusLongSuffixe(g, s, mot_len, cand_ls, &current_ls);
+            
+            if (cand_suf != NULL) {
+                // Verifier l'overlap
+                Bool overlap = false;
+                listeg citer = cand_suf;
+                while (citer) {
+                    Noeud cn = (Noeud)citer->data;
+                    listeg piter = prefixe;
+                    Nat idx = 0;
+                    while(piter && idx < lp) {
+                        if ((Noeud)piter->data == cn) { overlap = true; break; }
+                        piter = piter->succ;
+                        idx++;
+                    }
+                    if (overlap) break;
+                    citer = citer->succ;
+                }
+
+                // Verifier le cycle: suf_start ne doit pas pouvoir atteindre pref_end
+                Bool cycle = false;
+                if (!overlap && lp > 0) {
+                    Noeud pref_end = NULL;
+                    listeg piter = prefixe;
+                    Nat idx = 0;
+                    while (piter && idx < lp) {
+                        pref_end = (Noeud)piter->data;
+                        piter = piter->succ;
+                        idx++;
+                    }
+                    Noeud suf_start = (Noeud)tetelg(cand_suf);
+                    if (_existeCheminNoeud(suf_start, pref_end)) {
+                        cycle = true;
+                    }
+                }
+
+                if (!overlap && !cycle) {
+                    suffixe = cand_suf;
+                    ls = current_ls;
+                    break;
+                } else {
+                    detruirelg(cand_suf);
+                }
+            }
+        }
     }
 
     // Construire le tableau du chemin complet
@@ -900,59 +947,7 @@ None adjMot(GDM* g, CarUTF8* s) {
         lp = 1;
     }
 
-    // --- Vérifier et résoudre les cycles entre préfixe et suffixe ---
     Nat gap_end = mot_len - ls;
-    if (ls > 0 && gap_end > 0 && lp > 0) {
-        // Vérifier si des nœuds du suffixe sont aussi dans le préfixe (conflit)
-        Nat trim = 0;
-        listeg suf_iter = suffixe;
-        while (suf_iter != NULL && trim < ls) {
-            Noeud sn = (Noeud)suf_iter->data;
-            Bool conflict = false;
-            for (Nat p = 0; p < lp; p++) {
-                if (chemin[p] == sn) { conflict = true; break; }
-            }
-            if (conflict) {
-                trim++;
-                suf_iter = suf_iter->succ;
-            } else {
-                break;
-            }
-        }
-        if (trim > 0) {
-            // Retirer les nœuds en conflit du suffixe
-            ls -= trim;
-            Nat old_gap_end = gap_end;
-            gap_end = mot_len - ls;
-            // Effacer les positions en conflit
-            for (Nat i = old_gap_end; i < gap_end && i < mot_len; i++) {
-                chemin[i] = NULL;
-            }
-            // Remplir le suffixe restant
-            if (ls > 0) {
-                Nat idx = gap_end;
-                while (suf_iter != NULL && idx < mot_len) {
-                    chemin[idx] = (Noeud)suf_iter->data;
-                    suf_iter = suf_iter->succ;
-                    idx++;
-                }
-            }
-        }
-    }
-
-    // --- Vérifier le cycle résiduel entre gap et suffixe ---
-    if (ls > 0 && gap_end > 0 && gap_end < mot_len) {
-        Noeud prev_node = chemin[gap_end - 1];
-        Noeud suf_start = chemin[gap_end];
-        if (prev_node != NULL && suf_start != NULL && _existeCheminNoeud(suf_start, prev_node)) {
-            // Cycle résiduel : abandonner le suffixe restant
-            for (Nat i = gap_end; i < mot_len; i++) {
-                chemin[i] = NULL;
-            }
-            ls = 0;
-            gap_end = mot_len;
-        }
-    }
 
     // --- Remplir le gap (entre préfixe et suffixe) ---
     for (Nat i = lp; i < gap_end; i++) {
