@@ -211,6 +211,13 @@ typedef struct snoeud {
     listeg lsucc, lpred;
 } *Noeud;
 
+void _imprimerNoeud(Noeud n) {
+    if (n == NULL) return;
+    printf("[%p] '%c'0x%x(%d) f(%d) s(%d) p(%d)\n", n, n->car, n->car, n->count, n->fin, longueurlg(n->lsucc), longueurlg(n->lpred));
+}
+
+
+
 Noeud nouvNoeud(CarUTF8 c) {
     Noeud n = MALLOC(struct snoeud);
     if (n == NULL) return NULL;
@@ -259,6 +266,39 @@ Bool _motsEgaux(CarUTF8* a, Nat la, CarUTF8* b, Nat lb) {
         if (a[i] != b[i]) return false;
     }
     return true;
+}
+
+void exporterMermaid(GDM* g) {
+    if (g == NULL) return;
+    FILE* f = fopen("basic_graph.md", "w");
+    if (!f) return;
+    fprintf(f, "```mermaid\n");
+    fprintf(f, "graph TD\n");
+    
+    // Arrays for categories
+    for (int i = 0; i < N_ASCII; i++) {
+        listeg arrays[] = {g->racines[i], g->interne[i], g->isole[i], g->feuilles[i]};
+        for (int a = 0; a < 4; a++) {
+            listeg cur = arrays[a];
+            while (cur) {
+                Noeud n = (Noeud)cur->data;
+                // Define node
+                fprintf(f, "    n_%p(\"'%c'<br/>count:%d fin:%d\")\n", n, n->car, n->count, n->fin);
+                
+                // Define edges
+                listeg succ = n->lsucc;
+                while (succ) {
+                    Noeud s = (Noeud)succ->data;
+                    fprintf(f, "    n_%p --> n_%p\n", n, s);
+                    succ = succ->succ;
+                }
+                cur = cur->succ;
+            }
+        }
+    }
+    
+    fprintf(f, "```\n");
+    fclose(f);
 }
 
 Bool _motEstEnregistre(GDM* g, CarUTF8* s, Nat len) {
@@ -1213,6 +1253,7 @@ int main() {
         detruirelg(mot);
         FREE(s);
     }
+    exporterMermaid(&g);
     detruireGDM(&g);
 
     printf("\nTEST COMPLET\n----------------\n");
