@@ -1,0 +1,158 @@
+TEST CarUTF8
+----------------
+ùéäçà€ - len:6, invalid:1
+c3b9(a) c3a9(a) c3a4(a) c3a7(a) c3a0(a) 20( ) 
+émotions - len:8, invalid:0
+c3a9(a) 6d(a) 6f(a) 74(a) 69(a) 6f(a) 6e(a) 73(a) 
+ñ€ - len:2, invalid:1
+c3b1(a) 20( ) 
+
+TEST BASIQUE
+----------------
+adj   0: fiction -> 7 (invalid:0)
+adj   1: lotion -> 6 (invalid:0)
+adj   2: notion -> 6 (invalid:0)
+adj   3: nation -> 6 (invalid:0)
+adj   4: locomotion -> 10 (invalid:0)
+adj   5: unions -> 6 (invalid:0)
+adj   6: émotions -> 8 (invalid:0)
+adj   7: punition -> 8 (invalid:0)
+adj   8: natation -> 8 (invalid:0)
+adj   9: pions -> 5 (invalid:0)
+adj   10: unir -> 4 (invalid:0)
+adj   11: punir -> 5 (invalid:0)
+adj   12: station -> 7 (invalid:0)
+adj   13: pion -> 4 (invalid:0)
+adj   14: location -> 8 (invalid:0)
+GDM nracines:5
+GDM nfeuilles:11
+GDM nInterne:60
+GDM nArcs: 71
+le mot: passage n'existe pas
+le mot: vague n'existe pas
+le mot: punition existe
+'n'0x6e(1) 'o'0x6f(1) 'i'0x69(1) 't'0x74(1) 'i'0x69(3) 'n'0x6e(4) 'u'0x75(3) 'p'0x70(4) 
+le mot: Homme n'existe pas
+le mot: permis n'existe pas
+
+TEST COMPLET
+----------------
+Lecture du fichier texte.txt: 30768 octets
+Longueur 29291 - dont 364 caracteres invalides
+mot 0 -> len=2 (to position 2)
+'L'0x4c 'a'0x61 
+mot 100 -> len=10 (to position 604)
+'o'0x6f 'r'0x72 'd'0x64 'i'0x69 'n'0x6e 'a'0x61 't'0x74 'e'0x65 'u'0x75 'r'0x72 
+mot 200 -> len=7 (to position 1200)
+'d'0x64 'o'0x6f 'n'0x6e 'n'0x6e 'é'0xc3a9 'e'0x65 's'0x73 
+mot 300 -> len=4 (to position 1822)
+'p'0x70 'l'0x6c 'u'0x75 's'0x73 
+mot 400 -> len=6 (to position 2401)
+'g'0x67 'l'0x6c 'o'0x6f 'i'0x69 'r'0x72 'e'0x65 
+mot 500 -> len=9 (to position 3048)
+'c'0x63 'o'0x6f 'm'0x6d 'p'0x70 'a'0x61 'g'0x67 'n'0x6e 'i'0x69 'e'0x65 
+mot 600 -> len=4 (to position 3599)
+'v'0x76 'o'0x6f 'u'0x75 's'0x73 
+mot 700 -> len=5 (to position 4189)
+'t'0x74 'e'0x65 'm'0x6d 'p'0x70 's'0x73 
+mot 800 -> len=3 (to position 4703)
+'d'0x64 'i'0x69 't'0x74 
+mot 900 -> len=5 (to position 5275)
+'a'0x61 'u'0x75 't'0x74 'r'0x72 'e'0x65 
+mot 1000 -> len=2 (to position 5784)
+'d'0x64 'e'0x65 
+mot 1100 -> len=7 (to position 6327)
+'d'0x64 'é'0xc3a9 'c'0x63 'l'0x6c 'a'0x61 'r'0x72 'a'0x61 
+mot 1200 -> len=3 (to position 6896)
+'q'0x71 'u'0x75 'e'0x65 
+mot 1300 -> len=5 (to position 7514)
+'E'0x45 'n'0x6e 'f'0x66 'i'0x69 'n'0x6e 
+mot 1400 -> len=5 (to position 8170)
+'p'0x70 'l'0x6c 'a'0x61 'c'0x63 'e'0x65 
+mot 1500 -> len=2 (to position 8801)
+'e'0x65 'n'0x6e 
+mot 1600 -> len=8 (to position 9372)
+'s'0x73 't'0x74 'a'0x61 't'0x74 'i'0x69 'o'0x6f 'n'0x6e 's'0x73 
+mot 1700 -> len=4 (to position 9970)
+'N'0x4e 'o'0x6f 'u'0x75 's'0x73 
+mot 1800 -> len=7 (to position 10533)
+'J'0x4a 'e'0x65 'r'0x72 'r'0x72 'o'0x6f 'd'0x64 'd'0x64 
+mot 1900 -> len=4 (to position 11110)
+'p'0x70 'l'0x6c 'u'0x75 's'0x73 
+mot 2000 -> len=4 (to position 11748)
+'v'0x76 'e'0x65 'r'0x72 's'0x73 
+mot 2100 -> len=5 (to position 12318)
+'e'0x65 'l'0x6c 'l'0x6c 'e'0x65 's'0x73 
+mot 2200 -> len=8 (to position 12931)
+'d'0x64 'e'0x65 'm'0x6d 'a'0x61 'n'0x6e 'd'0x64 'e'0x65 'r'0x72 
+mot 2300 -> len=2 (to position 13538)
+'2'0x32 '3'0x33 
+mot 2400 -> len=2 (to position 14108)
+'n'0x6e 'e'0x65 
+mot 2500 -> len=3 (to position 14672)
+'a'0x61 'n'0x6e 's'0x73 
+mot 2600 -> len=3 (to position 15269)
+'p'0x70 'a'0x61 's'0x73 
+mot 2700 -> len=1 (to position 15822)
+'a'0x61 
+mot 2800 -> len=4 (to position 16435)
+'v'0x76 'i'0x69 't'0x74 'e'0x65 
+mot 2900 -> len=1 (to position 16993)
+'C'0x43 
+mot 3000 -> len=2 (to position 17537)
+'l'0x6c 'a'0x61 
+mot 3100 -> len=7 (to position 18150)
+'d'0x64 'e'0x65 'm'0x6d 'a'0x61 'n'0x6e 'd'0x64 'a'0x61 
+mot 3200 -> len=5 (to position 18720)
+'a'0x61 'v'0x76 'a'0x61 'i'0x69 't'0x74 
+mot 3300 -> len=3 (to position 19304)
+'f'0x66 'u'0x75 't'0x74 
+mot 3400 -> len=2 (to position 19901)
+'S'0x53 'i'0x69 
+mot 3500 -> len=7 (to position 20504)
+'p'0x70 'e'0x65 'u'0x75 'p'0x70 'l'0x6c 'é'0xc3a9 'e'0x65 
+mot 3600 -> len=10 (to position 21065)
+'é'0xc3a9 't'0x74 'i'0x69 'n'0x6e 'c'0x63 'e'0x65 'l'0x6c 'a'0x61 'n'0x6e 't'0x74 
+mot 3700 -> len=5 (to position 21641)
+'a'0x61 'v'0x76 'a'0x61 'i'0x69 't'0x74 
+mot 3800 -> len=5 (to position 22280)
+'P'0x50 'r'0x72 'i'0x69 'm'0x6d 'e'0x65 
+mot 3900 -> len=3 (to position 22865)
+'s'0x73 'o'0x6f 'n'0x6e 
+mot 4000 -> len=7 (to position 23439)
+'é'0xc3a9 't'0x74 'o'0x6f 'i'0x69 'l'0x6c 'e'0x65 's'0x73 
+mot 4100 -> len=3 (to position 24045)
+'u'0x75 'n'0x6e 'e'0x65 
+mot 4200 -> len=10 (to position 24636)
+'a'0x61 's'0x73 's'0x73 'o'0x6f 'm'0x6d 'b'0x62 'r'0x72 'i'0x69 'e'0x65 's'0x73 
+mot 4300 -> len=2 (to position 25300)
+'l'0x6c 'a'0x61 
+mot 4400 -> len=4 (to position 25867)
+'d'0x64 'a'0x61 'n'0x6e 's'0x73 
+mot 4500 -> len=6 (to position 26470)
+'T'0x54 'O'0x4f 'U'0x55 'T'0x54 'E'0x45 'S'0x53 
+mot 4600 -> len=1 (to position 27083)
+'l'0x6c 
+mot 4700 -> len=2 (to position 27658)
+'n'0x6e 'e'0x65 
+mot 4800 -> len=1 (to position 28182)
+'d'0x64 
+mot 4900 -> len=9 (to position 28766)
+'d'0x64 'i'0x69 'r'0x72 'e'0x65 'c'0x63 't'0x74 'i'0x69 'o'0x6f 'n'0x6e 
+GDM nracines:31
+GDM nfeuilles:3340
+GDM nInterne:10880
+GDM nArcs: 14220
+le mot: passage existe
+'e'0x65(1) 'g'0x67(1) 'a'0x61(1) 's'0x73(1) 's'0x73(1) 'a'0x61(2) 'p'0x70(2) 
+le mot: vague existe
+'e'0x65(1) 'u'0x75(1) 'g'0x67(1) 'a'0x61(2) 'v'0x76(3) 
+le mot: punition n'existe pas
+le mot: Homme existe
+'e'0x65(19) 'm'0x6d(19) 'm'0x6d(19) 'o'0x6f(19) 'H'0x48(20) 
+le mot: permis existe
+'s'0x73(1) 'i'0x69(2) 'm'0x6d(2) 'r'0x72(1) 'e'0x65(1) 'p'0x70(2) 
+
+TEST COMPLETION
+----------------
+'e'0x65 's'0x73 'p'0x70  ... 
