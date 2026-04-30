@@ -717,7 +717,7 @@ Bool _cheminMieuxPartage(listeg candidat, listeg reference) {
     return _sommeCountsChemin(candidat) > _sommeCountsChemin(reference);
 }
 
-listeg _trouveSuffixeLongueur(GDM* g, CarUTF8* s, Nat len_mot, Nat len_suffixe) {
+listeg _trouveSuffixeLongueur(GDM* g, CarUTF8* s, Nat len_mot, Nat len_suffixe, listeg prefixe) {
     if (g == NULL || s == NULL || len_mot == 0 || len_suffixe == 0) return NULL;
 
     Nat debut = len_mot - len_suffixe;
@@ -733,6 +733,19 @@ listeg _trouveSuffixeLongueur(GDM* g, CarUTF8* s, Nat len_mot, Nat len_suffixe) 
                 listeg rev = _trouveCheminPredRec(leaf, s, len_mot - 1, debut);
                 if (rev != NULL) {
                     listeg fwd = _inverseListe(rev);
+                    Bool has_overlap = false;
+                    if (prefixe != NULL) {
+                        listeg cfwd = fwd;
+                        while (cfwd != NULL) {
+                            if (elemlg(prefixe, cfwd->data)) { has_overlap = true; break; }
+                            cfwd = cfwd->succ;
+                        }
+                    }
+                    if (has_overlap) {
+                        detruirelg(fwd);
+                        cur = cur->succ;
+                        continue;
+                    }
                     Noeud start = (Noeud)tetelg(fwd);
                     if (len_suffixe < len_mot && estRacine(start)) {
                         detruirelg(fwd);
@@ -757,14 +770,14 @@ listeg _trouveSuffixeLongueur(GDM* g, CarUTF8* s, Nat len_mot, Nat len_suffixe) 
     return best;
 }
 
-listeg _plusLongSuffixe(GDM* g, CarUTF8* s, Nat len_mot, Nat max_suffixe, Nat* len_suffixe) {
+listeg _plusLongSuffixe(GDM* g, CarUTF8* s, Nat len_mot, Nat max_suffixe, listeg prefixe, Nat* len_suffixe) {
     if (len_suffixe == NULL) return NULL;
     *len_suffixe = 0;
     if (g == NULL || s == NULL || len_mot == 0 || max_suffixe == 0) return NULL;
 
     Nat l = max_suffixe;
     while (l > 0) {
-        listeg p = _trouveSuffixeLongueur(g, s, len_mot, l);
+        listeg p = _trouveSuffixeLongueur(g, s, len_mot, l, prefixe);
         if (p != NULL) {
             *len_suffixe = l;
             return p;
@@ -845,7 +858,7 @@ None adjMot(GDM* g, CarUTF8* s) {
     listeg suffixe = NULL;
     Nat max_suffix = mot_len - lp;
     if (max_suffix > 0) {
-        suffixe = _plusLongSuffixe(g, s, mot_len, max_suffix, &ls);
+        suffixe = _plusLongSuffixe(g, s, mot_len, max_suffix, prefixe, &ls);
     }
 
 
