@@ -211,13 +211,6 @@ typedef struct snoeud {
     listeg lsucc, lpred;
 } *Noeud;
 
-void _imprimerNoeud(Noeud n) {
-    if (n == NULL) return;
-    printf("[%p] '%c'0x%x(%d) f(%d) s(%d) p(%d)\n", n, n->car, n->car, n->count, n->fin, longueurlg(n->lsucc), longueurlg(n->lpred));
-}
-
-
-
 Noeud nouvNoeud(CarUTF8 c) {
     Noeud n = MALLOC(struct snoeud);
     if (n == NULL) return NULL;
@@ -266,39 +259,6 @@ Bool _motsEgaux(CarUTF8* a, Nat la, CarUTF8* b, Nat lb) {
         if (a[i] != b[i]) return false;
     }
     return true;
-}
-
-void exporterMermaid(GDM* g) {
-    if (g == NULL) return;
-    FILE* f = fopen("basic_graph.md", "w");
-    if (!f) return;
-    fprintf(f, "```mermaid\n");
-    fprintf(f, "graph TD\n");
-    
-    // Arrays for categories
-    for (int i = 0; i < N_ASCII; i++) {
-        listeg arrays[] = {g->racines[i], g->interne[i], g->isole[i], g->feuilles[i]};
-        for (int a = 0; a < 4; a++) {
-            listeg cur = arrays[a];
-            while (cur) {
-                Noeud n = (Noeud)cur->data;
-                // Define node
-                fprintf(f, "    n_%p(\"'%c'<br/>count:%d fin:%d\")\n", n, n->car, n->count, n->fin);
-                
-                // Define edges
-                listeg succ = n->lsucc;
-                while (succ) {
-                    Noeud s = (Noeud)succ->data;
-                    fprintf(f, "    n_%p --> n_%p\n", n, s);
-                    succ = succ->succ;
-                }
-                cur = cur->succ;
-            }
-        }
-    }
-    
-    fprintf(f, "```\n");
-    fclose(f);
 }
 
 Bool _motEstEnregistre(GDM* g, CarUTF8* s, Nat len) {
@@ -580,6 +540,7 @@ Noeud _queueNoeud(listeg l) {
     while (cur->succ != NULL) cur = cur->succ;
     return (Noeud)cur->data;
 }
+
 
 listeg _inverseListe(listeg l) {
     listeg prev = NULL;
@@ -879,66 +840,21 @@ None adjMot(GDM* g, CarUTF8* s) {
     Nat lp = 0;
     listeg prefixe = _plusLongPrefixe(g, s, mot_len, &lp);
 
-    // --- Trouver le plus long suffixe valide (cycle/overlap free) ---
+    // --- Trouver le plus long suffixe existant (sans chevaucher le préfixe) ---
     Nat ls = 0;
     listeg suffixe = NULL;
     Nat max_suffix = mot_len - lp;
-    
     if (max_suffix > 0) {
-        for (Nat cand_ls = max_suffix; cand_ls > 0; cand_ls--) {
-            Nat current_ls = 0;
-            listeg cand_suf = _plusLongSuffixe(g, s, mot_len, cand_ls, &current_ls);
-            
-            if (cand_suf != NULL) {
-                // Verifier l'overlap
-                Bool overlap = false;
-                listeg citer = cand_suf;
-                while (citer) {
-                    Noeud cn = (Noeud)citer->data;
-                    listeg piter = prefixe;
-                    Nat idx = 0;
-                    while(piter && idx < lp) {
-                        if ((Noeud)piter->data == cn) { overlap = true; break; }
-                        piter = piter->succ;
-                        idx++;
-                    }
-                    if (overlap) break;
-                    citer = citer->succ;
-                }
-
-                // Verifier le cycle: suf_start ne doit pas pouvoir atteindre pref_end
-                Bool cycle = false;
-                if (!overlap && lp > 0) {
-                    Noeud pref_end = NULL;
-                    listeg piter = prefixe;
-                    Nat idx = 0;
-                    while (piter && idx < lp) {
-                        pref_end = (Noeud)piter->data;
-                        piter = piter->succ;
-                        idx++;
-                    }
-                    Noeud suf_start = (Noeud)tetelg(cand_suf);
-                    if (_existeCheminNoeud(suf_start, pref_end)) {
-                        cycle = true;
-                    }
-                }
-
-                if (!overlap && !cycle) {
-                    suffixe = cand_suf;
-                    ls = current_ls;
-                    break;
-                } else {
-                    detruirelg(cand_suf);
-                }
-            }
-        }
+        suffixe = _plusLongSuffixe(g, s, mot_len, max_suffix, &ls);
     }
+
+
 
     // Construire le tableau du chemin complet
     Noeud chemin[26];
     for (Nat i = 0; i < mot_len && i < 26; i++) chemin[i] = NULL;
 
-    // Remplir les nœuds du préfixe (tronqué si nécessaire)
+    // Remplir les nœuds du préfixe
     if (prefixe != NULL) {
         listeg cur = prefixe;
         Nat idx = 0;
@@ -950,7 +866,7 @@ None adjMot(GDM* g, CarUTF8* s) {
     }
 
     // Remplir les nœuds du suffixe
-    if (suffixe != NULL && ls > 0) {
+    if (suffixe != NULL) {
         listeg cur = suffixe;
         Nat idx = mot_len - ls;
         while (cur != NULL && idx < mot_len) {
@@ -987,11 +903,9 @@ None adjMot(GDM* g, CarUTF8* s) {
         lp = 1;
     }
 
+    // Créer les nœuds manquants (entre préfixe et suffixe)
     Nat gap_end = mot_len - ls;
-
-    // --- Remplir le gap (entre préfixe et suffixe) ---
     for (Nat i = lp; i < gap_end; i++) {
-        if (chemin[i] != NULL) continue;
         Noeud n = nouvNoeud(s[i]);
         if (n == NULL) { detruirelg(prefixe); detruirelg(suffixe); return; }
         chemin[i] = n;
@@ -999,7 +913,22 @@ None adjMot(GDM* g, CarUTF8* s) {
         g->isole[h] = adjtetelg(g->isole[h], n);
     }
 
-    // --- Connecter tous les nœuds consécutifs ---
+    // Vérifier si la connexion gap->suffixe créerait un cycle
+    if (ls > 0 && gap_end > 0 && chemin[gap_end - 1] != NULL && chemin[gap_end] != NULL) {
+        if (_existeCheminNoeud(chemin[gap_end], chemin[gap_end - 1])) {
+            // Cycle détecté : abandonner le suffixe, créer des nœuds frais
+            for (Nat i = gap_end; i < mot_len; i++) {
+                Noeud n = nouvNoeud(s[i]);
+                if (n == NULL) { detruirelg(prefixe); detruirelg(suffixe); return; }
+                chemin[i] = n;
+                Nat h = hashNoeud(n);
+                g->isole[h] = adjtetelg(g->isole[h], n);
+            }
+            ls = 0;
+        }
+    }
+
+    // Connecter tous les nœuds consécutifs qui ne sont pas encore connectés
     for (Nat i = 0; i < mot_len - 1; i++) {
         Noeud nx = chemin[i];
         Noeud ny = chemin[i + 1];
@@ -1253,7 +1182,6 @@ int main() {
         detruirelg(mot);
         FREE(s);
     }
-    exporterMermaid(&g);
     detruireGDM(&g);
 
     printf("\nTEST COMPLET\n----------------\n");
@@ -1363,6 +1291,8 @@ int main() {
         printf("\n");
         detruirelg(complet[i]);
     }
+
+    printf("\n\n\n");
 
     detruireGDM(&g);
     return 0;
