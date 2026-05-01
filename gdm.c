@@ -58,6 +58,7 @@ CarUTF8* enChaineUTF8(Chaine str, Nat* length, Nat* n_invalides) {
     Nat str_len = chaineLongueur(str);
     Nat capacity = str_len + 1;
     CarUTF8* utf8_chain = MALLOCN(CarUTF8, capacity);
+    if (utf8_chain == NULL) { *length = 0; *n_invalides = 0; return NULL; }
     Nat i = 0;
     Nat j = 0;
     while (i < str_len) {
@@ -131,6 +132,7 @@ listeg clonelg(listeg l) {
 
 listeg adjtetelg(listeg l, Joker x) {
     listeg m = MALLOC(struct s_maillong);
+    if (m == NULL) return l;
     m->data = x;
     m->succ = l;
     return m;
@@ -199,7 +201,7 @@ Noeud nouvNoeud(CarUTF8 c) {
     return n;
 }
 
-Nat hashNoeud(Noeud nx) { return nx->car % N_ASCII; }
+Nat hashNoeud(Noeud nx) { if (nx == NULL) return 0; return nx->car % N_ASCII; }
 
 Ent compareNoeudCar(Joker x, Joker y) {
     Noeud nx = (Noeud)x;
@@ -472,7 +474,7 @@ listeg _findSuffix(GDM* g, CarUTF8* s, Nat len, Nat* suf_len) {
 
     Noeud current = end_node;
     Nat pos = len - 1;
-    while (pos > 0) {
+    while (pos > 0 && idx < 26) {
         pos--;
         CarUTF8 c = s[pos];
         Noeud found = NULL;
@@ -542,7 +544,7 @@ listeg existeMot(GDM* g, CarUTF8* s);
 listeg adjMot(GDM* g, CarUTF8* s) {
     if (g == NULL || s == NULL) return NULL;
     Nat mot_len = chaineUTF8Longueur(s);
-    if (mot_len == 0) return NULL;
+    if (mot_len == 0 || mot_len > 25) return NULL;
 
     // --- Single character ---
     if (mot_len == 1) {
@@ -564,6 +566,7 @@ listeg adjMot(GDM* g, CarUTF8* s) {
         }
         if (!iso) {
             iso = nouvNoeud(s[0]);
+            if (iso == NULL) return NULL;
             g->isole[hashNoeud(iso)] = adjtetelg(g->isole[hashNoeud(iso)], iso);
         }
         iso->count++;
@@ -647,6 +650,7 @@ listeg adjMot(GDM* g, CarUTF8* s) {
     if (pref_len == 0) {
         if (!root_node) {
             root_node = nouvNoeud(s[0]);
+            if (root_node == NULL) { detruirelg(suffix_list); return NULL; }
             g->racines[hashNoeud(root_node)] =
                 adjtetelg(g->racines[hashNoeud(root_node)], root_node);
         }
@@ -670,6 +674,7 @@ listeg adjMot(GDM* g, CarUTF8* s) {
     Nat gap_end = mot_len - suf_len;
     for (Nat i = gap_start; i < gap_end; i++) {
         Noeud n = nouvNoeud(s[i]);
+        if (n == NULL) { detruirelg(suffix_list); return NULL; }
         chemin[i] = n;
         g->isole[hashNoeud(n)] = adjtetelg(g->isole[hashNoeud(n)], n);
     }
@@ -702,6 +707,7 @@ listeg adjMot(GDM* g, CarUTF8* s) {
 
 listeg existeChemin(GDM* g, CarUTF8* m, Nat nc, Noeud nx, Noeud ny) {
     (void)g;
+    if (nx == NULL || ny == NULL) return NULL;
     if (nc == 0) {
         if (elemlg(nx->lsucc, ny))
             return adjtetelg(adjtetelg(NULL, ny), nx);
@@ -894,6 +900,7 @@ int main() {
     };
     for (Nat i = 0; i < 3; i++) {
         CarUTF8* s = enChaineUTF8(utfm[i], &lg, &ni);
+        if (s == NULL) continue;
         printf("%s - len:%d, invalid:%d\n", utfm[i], lg, ni);
         Nat j = 0;
         while (s[j] != 0) {
@@ -918,6 +925,7 @@ int main() {
     initGDM(&g);
     for (Nat i = 0; i < 15; i++) {
         CarUTF8* s = enChaineUTF8(m[i], &lg, &ni);
+        if (s == NULL) continue;
         printf("adj   %d: %s -> %d (invalid:%d)\n", i, m[i], lg, ni);
         adjMot(&g, s);
         FREE(s);
@@ -933,6 +941,7 @@ int main() {
     };
     for (Nat i = 0; i < 5; i++) {
         CarUTF8* s = enChaineUTF8(rech[i], &lg, &ni);
+        if (s == NULL) continue;
         listeg mot = existeMot(&g, s);
         if (videlg(mot)) printf("le mot: %s n'existe pas\n", rech[i]);
         else printf("le mot: %s existe\n", rech[i]);
@@ -958,10 +967,13 @@ int main() {
     Nat capacite = 1000;
     Nat k = 0;
     unsigned char* txt = MALLOCN(unsigned char, capacite);
+    if (txt == NULL) { fclose(fd); perror("malloc failed"); return 1; }
     while (!feof(fd)) {
         if (k == capacite) {
             capacite += 1000;
-            txt = REALLOC(txt, unsigned char, capacite);
+            unsigned char* tmp = REALLOC(txt, unsigned char, capacite);
+            if (tmp == NULL) { FREE(txt); fclose(fd); perror("realloc failed"); return 1; }
+            txt = tmp;
         }
         unsigned char c;
         fread(&c, 1, 1, fd);
@@ -973,6 +985,7 @@ int main() {
     printf("Lecture du fichier texte.txt: %u octets\n", k);
 
     CarUTF8* s = enChaineUTF8(txt, &lg, &ni);
+    if (s == NULL) { FREE(txt); return 1; }
     printf("Longueur %d - dont %d caracteres invalides\n", lg, ni);
     FREE(txt);
 
@@ -1014,6 +1027,7 @@ int main() {
 
     for (Nat i = 0; i < 5; i++) {
         CarUTF8* s = enChaineUTF8(rech[i], &lg, &ni);
+        if (s == NULL) continue;
         listeg mot = existeMot(&g, s);
         if (videlg(mot)) printf("le mot: %s n'existe pas\n", rech[i]);
         else printf("le mot: %s existe\n", rech[i]);
