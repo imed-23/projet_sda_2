@@ -2,44 +2,7 @@
 // gdm.c - Graphe de Mots Projet SDA2
 // ============================================================================
 
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-#include <stdbool.h>
-#include <string.h>
-
-// ============================================================================
-// CONSTANTES ET TYPES
-// ============================================================================
-
-#define N_ASCII (0x80)
-
-typedef bool Bool;
-typedef unsigned int Nat;
-typedef int Ent;
-typedef float Reel;
-typedef float Rat;
-typedef unsigned char Car;
-typedef Car * Chaine;
-typedef unsigned short CarUTF8;
-typedef void* Joker;
-typedef void None;
-typedef Ent(*fcomp)(Joker x, Joker y);
-
-#define MALLOC(type)        ((type*)malloc(sizeof(type)))
-#define CALLOCN(type, n)    ((type*)calloc(n, sizeof(type)))
-#define MALLOCN(type, n)    ((type*)malloc((n) * sizeof(type)))
-#define REALLOC(t, type, n) ((type*)realloc(t, (n) * sizeof(type)))
-#define FREE(t) free(t)
-
-#define NatToChaine(x,s) sprintf(s,"%u",x)
-#define EntToChaine(x,s) sprintf(s,"%d",x)
-#define ReelToChaine(x,s) sprintf(s,"%g",x)
-#define chaineLongueur(s) strlen((char*)(s))
-#define chaineConcat(sa,sb) strcat((char*)(sa),(char*)(sb))
-#define chaineCompare(sa,sb) strcmp((char*)(sa),(char*)(sb))
-#define chaineCopie(sa,sb) strcpy((char*)(sa),(char*)(sb))
+#include "base.h"
 
 // ============================================================================
 // UTF-8
@@ -95,17 +58,23 @@ CarUTF8* enChaineUTF8(Chaine str, Nat* length, Nat* n_invalides) {
     Nat str_len = chaineLongueur(str);
     Nat capacity = str_len + 1;
     CarUTF8* utf8_chain = MALLOCN(CarUTF8, capacity);
-    Nat i = 0, j = 0;
+    Nat i = 0;
+    Nat j = 0;
     while (i < str_len) {
-        CarUTF8 u_char; Nat nc = 0;
+        CarUTF8 u_char;
+        Nat nc = 0;
         if (enCarUTF8(&str[i], &u_char, &nc) && u_char != 0x20AC) {
-            utf8_chain[j++] = u_char; i += nc;
+            utf8_chain[j++] = u_char;
+            i += nc;
         } else {
-            (*n_invalides)++; utf8_chain[j++] = 0x20;
+            (*n_invalides)++;
+            utf8_chain[j++] = 0x20;
             if (nc > 0) { i += nc; } else { i++; }
         }
     }
-    utf8_chain[j] = 0; *length = j; return utf8_chain;
+    utf8_chain[j] = 0;
+    *length = j;
+    return utf8_chain;
 }
 
 Nat chaineUTF8Longueur(CarUTF8* s) {
@@ -130,7 +99,7 @@ Ent compareCarUTF8(CarUTF8 x, CarUTF8 y) {
 }
 
 // ============================================================================
-// LISTEG (Liste générique)
+// LISTEG (Liste generique)
 // ============================================================================
 
 typedef struct s_maillong { Joker data; struct s_maillong* succ; } *listeg;
@@ -145,20 +114,26 @@ listeg clonelg(listeg l) {
     if (l == NULL) return NULL;
     listeg new_list = MALLOC(struct s_maillong);
     if (new_list == NULL) return NULL;
-    new_list->data = l->data; new_list->succ = NULL;
-    listeg current_old = l->succ, current_new = new_list;
+    new_list->data = l->data;
+    new_list->succ = NULL;
+    listeg current_old = l->succ;
+    listeg current_new = new_list;
     while (current_old != NULL) {
         current_new->succ = MALLOC(struct s_maillong);
         if (current_new->succ == NULL) { detruirelg(new_list); return NULL; }
         current_new = current_new->succ;
-        current_new->data = current_old->data; current_new->succ = NULL;
+        current_new->data = current_old->data;
+        current_new->succ = NULL;
         current_old = current_old->succ;
     }
     return new_list;
 }
 
 listeg adjtetelg(listeg l, Joker x) {
-    listeg m = MALLOC(struct s_maillong); m->data = x; m->succ = l; return m;
+    listeg m = MALLOC(struct s_maillong);
+    m->data = x;
+    m->succ = l;
+    return m;
 }
 
 listeg supkiemelg(listeg l, Nat k) {
@@ -167,21 +142,25 @@ listeg supkiemelg(listeg l, Nat k) {
     listeg cur = l;
     for (Nat i = 0; cur && i < k - 1; i++) cur = cur->succ;
     if (!cur || !cur->succ) return l;
-    listeg t = cur->succ; cur->succ = t->succ; FREE(t); return l;
-}
-
-listeg supelemg(listeg l, Joker x, fcomp comp) {
-    if (l == NULL) return NULL;
-    if (comp(x, l->data) == 0) { listeg t = l->succ; FREE(l); return t; }
-    listeg cur = l;
-    while (cur->succ && comp(x, cur->succ->data) != 0) cur = cur->succ;
-    if (cur->succ) { listeg t = cur->succ; cur->succ = t->succ; FREE(t); }
+    listeg t = cur->succ;
+    cur->succ = t->succ;
+    FREE(t);
     return l;
 }
 
 listeg rechlg(listeg l, Joker x, fcomp comp) {
     while (l) { if (comp(x, l->data) == 0) return l; l = l->succ; }
     return NULL;
+}
+
+listeg rechalllg(listeg l, Joker x, fcomp comp) {
+    listeg result = NULL;
+    while (l) {
+        if (comp(x, l->data) == 0)
+            result = adjtetelg(result, l->data);
+        l = l->succ;
+    }
+    return result;
 }
 
 listeg nextlg(listeg l) { return l ? l->succ : NULL; }
@@ -207,27 +186,30 @@ Nat longueurlg(listeg l) {
 typedef struct snoeud {
     CarUTF8 car;
     Nat count;
-    Nat fin;
     listeg lsucc, lpred;
 } *Noeud;
 
 Noeud nouvNoeud(CarUTF8 c) {
     Noeud n = MALLOC(struct snoeud);
     if (n == NULL) return NULL;
-    n->car = c; n->count = 0; n->fin = 0;
-    n->lsucc = nouvlg(); n->lpred = nouvlg();
+    n->car = c;
+    n->count = 0;
+    n->lsucc = nouvlg();
+    n->lpred = nouvlg();
     return n;
 }
 
 Nat hashNoeud(Noeud nx) { return nx->car % N_ASCII; }
 
 Ent compareNoeudCar(Joker x, Joker y) {
-    Noeud nx = (Noeud)x, ny = (Noeud)y;
+    Noeud nx = (Noeud)x;
+    Noeud ny = (Noeud)y;
     return compareCarUTF8(nx->car, ny->car);
 }
 
 Ent compareNoeud(Joker x, Joker y) {
-    Noeud nx = (Noeud)x, ny = (Noeud)y;
+    Noeud nx = (Noeud)x;
+    Noeud ny = (Noeud)y;
     if (nx == ny) return 0;
     return (nx < ny) ? -1 : 1;
 }
@@ -243,118 +225,28 @@ Bool estIsole(Noeud x) { return x && videlg(x->lpred) && videlg(x->lsucc); }
 // ============================================================================
 
 typedef struct sgdm {
-    listeg racines[N_ASCII], feuilles[N_ASCII], isole[N_ASCII], interne[N_ASCII];
-    listeg mots;
+    listeg racines[N_ASCII];
+    listeg feuilles[N_ASCII];
+    listeg isole[N_ASCII];
+    listeg interne[N_ASCII];
 } GDM;
 
-typedef struct smotmemo {
-    CarUTF8* s;
-    Nat len;
-    Noeud* chemin;
-} *MotMemo;
-
-Bool _motsEgaux(CarUTF8* a, Nat la, CarUTF8* b, Nat lb) {
-    if (a == NULL || b == NULL || la != lb) return false;
-    for (Nat i = 0; i < la; i++) {
-        if (a[i] != b[i]) return false;
-    }
-    return true;
-}
-
-Bool _motEstEnregistre(GDM* g, CarUTF8* s, Nat len) {
-    if (g == NULL || s == NULL || len == 0) return false;
-    listeg cur = g->mots;
-    while (cur != NULL) {
-        MotMemo m = (MotMemo)cur->data;
-        if (m != NULL && _motsEgaux(m->s, m->len, s, len)) return true;
-        cur = cur->succ;
-    }
-    return false;
-}
-
-MotMemo _trouveMotMemo(GDM* g, CarUTF8* s, Nat len) {
-    if (g == NULL || s == NULL || len == 0) return NULL;
-    listeg cur = g->mots;
-    while (cur != NULL) {
-        MotMemo m = (MotMemo)cur->data;
-        if (m != NULL && _motsEgaux(m->s, m->len, s, len)) return m;
-        cur = cur->succ;
-    }
-    return NULL;
-}
-
-None _enregistrerMotUnique(GDM* g, CarUTF8* s, Nat len) {
-    if (g == NULL || s == NULL || len == 0) return;
-    if (_motEstEnregistre(g, s, len)) return;
-
-    MotMemo m = MALLOC(struct smotmemo);
-    if (m == NULL) return;
-
-    m->s = MALLOCN(CarUTF8, len + 1);
-    if (m->s == NULL) {
-        FREE(m);
-        return;
-    }
-
-    for (Nat i = 0; i < len; i++) m->s[i] = s[i];
-    m->s[len] = 0;
-    m->len = len;
-    m->chemin = NULL;
-    g->mots = adjtetelg(g->mots, m);
-}
-
-None _enregistrerCheminMot(GDM* g, CarUTF8* s, Nat len, Noeud chemin[]) {
-    if (g == NULL || s == NULL || len == 0 || chemin == NULL) return;
-    MotMemo m = _trouveMotMemo(g, s, len);
-    if (m == NULL) return;
-
-    // Conserver le dernier chemin observe pour refleter l'etat final du graphe.
-    if (m->chemin != NULL) FREE(m->chemin);
-    m->chemin = MALLOCN(Noeud, len);
-    if (m->chemin == NULL) return;
-
-    for (Nat i = 0; i < len; i++) m->chemin[i] = chemin[i];
-}
-
-listeg _listeDepuisCheminMemo(MotMemo m) {
-    if (m == NULL || m->chemin == NULL || m->len == 0) return NULL;
-
-    listeg l = NULL;
-    for (Ent i = (Ent)m->len - 1; i >= 0; i--) {
-        l = adjtetelg(l, m->chemin[i]);
-    }
+listeg supelemg(listeg l, Joker x, fcomp comp) {
+    if (l == NULL) return NULL;
+    if (comp(x, l->data) == 0) { listeg t = l->succ; FREE(l); return t; }
+    listeg cur = l;
+    while (cur->succ && comp(x, cur->succ->data) != 0) cur = cur->succ;
+    if (cur->succ) { listeg t = cur->succ; cur->succ = t->succ; FREE(t); }
     return l;
-}
-
-Bool _cheminEstMotValide(GDM* g, listeg chemin) {
-    if (g == NULL || chemin == NULL) return false;
-
-    Nat len = longueurlg(chemin);
-    if (len == 0) return false;
-
-    CarUTF8* w = MALLOCN(CarUTF8, len + 1);
-    if (w == NULL) return false;
-
-    Nat i = 0;
-    listeg cur = chemin;
-    while (cur != NULL && i < len) {
-        Noeud n = (Noeud)cur->data;
-        w[i++] = n->car;
-        cur = cur->succ;
-    }
-    w[i] = 0;
-
-    Bool ok = _motEstEnregistre(g, w, len);
-    FREE(w);
-    return ok;
 }
 
 None initGDM(GDM* g) {
     for (Nat i = 0; i < N_ASCII; i++) {
-        g->racines[i] = nouvlg(); g->feuilles[i] = nouvlg();
-        g->isole[i] = nouvlg(); g->interne[i] = nouvlg();
+        g->racines[i] = nouvlg();
+        g->feuilles[i] = nouvlg();
+        g->isole[i] = nouvlg();
+        g->interne[i] = nouvlg();
     }
-    g->mots = nouvlg();
 }
 
 None _detruire(listeg tab[N_ASCII]) {
@@ -368,8 +260,12 @@ None _detruire(listeg tab[N_ASCII]) {
 None detruireGDM(GDM* g) {
     listeg all_nodes = nouvlg();
     for (Nat i = 0; i < N_ASCII; i++) {
-        listeg lists[] = {g->racines[i], g->feuilles[i], g->isole[i], g->interne[i]};
-        for (int j = 0; j < 4; j++) {
+        listeg lists[4];
+        lists[0] = g->racines[i];
+        lists[1] = g->feuilles[i];
+        lists[2] = g->isole[i];
+        lists[3] = g->interne[i];
+        for (Nat j = 0; j < 4; j++) {
             listeg cur = lists[j];
             while (cur) {
                 Noeud n = (Noeud)cur->data;
@@ -378,37 +274,36 @@ None detruireGDM(GDM* g) {
             }
         }
     }
-    _detruire(g->racines); _detruire(g->feuilles);
-    _detruire(g->isole); _detruire(g->interne);
+    _detruire(g->racines);
+    _detruire(g->feuilles);
+    _detruire(g->isole);
+    _detruire(g->interne);
     listeg cur = all_nodes;
     while (cur) {
         Noeud n = (Noeud)cur->data;
-        detruirelg(n->lsucc); detruirelg(n->lpred);
+        detruirelg(n->lsucc);
+        detruirelg(n->lpred);
         FREE(n);
         cur = cur->succ;
     }
     detruirelg(all_nodes);
-
-    listeg curm = g->mots;
-    while (curm != NULL) {
-        MotMemo m = (MotMemo)curm->data;
-        if (m != NULL) {
-            FREE(m->s);
-            FREE(m->chemin);
-            FREE(m);
-        }
-        curm = curm->succ;
-    }
-    detruirelg(g->mots);
-    g->mots = nouvlg();
 }
 
 None adjNoeud(GDM* g, Noeud n, Bool est_racine, Bool est_feuille) {
     Nat h = hashNoeud(n);
-    if (est_racine && !elemlg(g->racines[h], n)) g->racines[h] = adjtetelg(g->racines[h], n);
-    if (est_feuille && !elemlg(g->feuilles[h], n)) g->feuilles[h] = adjtetelg(g->feuilles[h], n);
-    if (!est_racine && !est_feuille && estIsole(n) && !elemlg(g->isole[h], n)) g->isole[h] = adjtetelg(g->isole[h], n);
-    if (!estRacine(n) && !estFeuille(n) && !elemlg(g->interne[h], n)) g->interne[h] = adjtetelg(g->interne[h], n);
+    if (est_racine && est_feuille) {
+        if (!elemlg(g->isole[h], n))
+            g->isole[h] = adjtetelg(g->isole[h], n);
+    } else if (est_racine) {
+        if (!elemlg(g->racines[h], n))
+            g->racines[h] = adjtetelg(g->racines[h], n);
+    } else if (est_feuille) {
+        if (!elemlg(g->feuilles[h], n))
+            g->feuilles[h] = adjtetelg(g->feuilles[h], n);
+    } else {
+        if (!elemlg(g->interne[h], n))
+            g->interne[h] = adjtetelg(g->interne[h], n);
+    }
 }
 
 None adjArc(GDM* g, Noeud nx, Noeud ny) {
@@ -417,31 +312,76 @@ None adjArc(GDM* g, Noeud nx, Noeud ny) {
     (void)g;
 }
 
+None _updateNodeCategory(GDM* g, Noeud n) {
+    if (n == NULL) return;
+    Nat h = hashNoeud(n);
+    g->racines[h] = supelemg(g->racines[h], n, compareNoeud);
+    g->feuilles[h] = supelemg(g->feuilles[h], n, compareNoeud);
+    g->isole[h] = supelemg(g->isole[h], n, compareNoeud);
+    g->interne[h] = supelemg(g->interne[h], n, compareNoeud);
+    Bool is_root = estRacine(n);
+    Bool is_leaf = estFeuille(n);
+    if (is_root && is_leaf) g->isole[h] = adjtetelg(g->isole[h], n);
+    else if (is_root)       g->racines[h] = adjtetelg(g->racines[h], n);
+    else if (is_leaf)       g->feuilles[h] = adjtetelg(g->feuilles[h], n);
+    else                    g->interne[h] = adjtetelg(g->interne[h], n);
+}
+
 Noeud existeNoeud(GDM* g, CarUTF8 c, Bool est_racine, Bool est_feuille) {
     Nat h = c % N_ASCII;
-    if (est_racine || (!est_racine && !est_feuille)) {
-        listeg cur = g->racines[h];
-        while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) return n; cur = cur->succ; }
-    }
-    if (est_feuille || (!est_racine && !est_feuille)) {
-        listeg cur = g->feuilles[h];
-        while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) return n; cur = cur->succ; }
-    }
-    if (!est_racine && !est_feuille) {
+    if (est_racine && est_feuille) {
         listeg cur = g->isole[h];
         while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) return n; cur = cur->succ; }
-        cur = g->interne[h];
-        while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) return n; cur = cur->succ; }
+        return NULL;
     }
+    if (est_racine) {
+        listeg cur = g->racines[h];
+        while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) return n; cur = cur->succ; }
+        return NULL;
+    }
+    if (est_feuille) {
+        listeg cur = g->feuilles[h];
+        while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) return n; cur = cur->succ; }
+        return NULL;
+    }
+    listeg cur = g->racines[h];
+    while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) return n; cur = cur->succ; }
+    cur = g->feuilles[h];
+    while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) return n; cur = cur->succ; }
+    cur = g->isole[h];
+    while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) return n; cur = cur->succ; }
+    cur = g->interne[h];
+    while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) return n; cur = cur->succ; }
     return NULL;
+}
+
+listeg tousNoeuds(GDM* g, CarUTF8 c, Bool est_racine, Bool est_feuille) {
+    Nat h = c % N_ASCII;
+    listeg result = NULL;
+    if (est_racine && est_feuille) {
+        listeg cur = g->isole[h];
+        while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) result = adjtetelg(result, n); cur = cur->succ; }
+        return result;
+    }
+    if (est_racine) {
+        listeg cur = g->racines[h];
+        while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) result = adjtetelg(result, n); cur = cur->succ; }
+        return result;
+    }
+    if (est_feuille) {
+        listeg cur = g->feuilles[h];
+        while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) result = adjtetelg(result, n); cur = cur->succ; }
+        return result;
+    }
+    listeg cur = g->interne[h];
+    while (cur) { Noeud n = (Noeud)cur->data; if (n->car == c) result = adjtetelg(result, n); cur = cur->succ; }
+    return result;
 }
 
 Bool existeArc(GDM* g, Noeud nx, Noeud ny) {
     (void)g;
     return nx && ny && elemlg(nx->lsucc, ny) != NULL;
 }
-
-listeg existeMot(GDM* g, CarUTF8* s);
 
 Nat nbFeuilles(GDM* g) {
     Nat c = 0;
@@ -471,8 +411,12 @@ Nat nbArcs(GDM* g) {
     Nat count = 0;
     listeg all_nodes = nouvlg();
     for (Nat i = 0; i < N_ASCII; i++) {
-        listeg lists[] = {g->racines[i], g->feuilles[i], g->isole[i], g->interne[i]};
-        for (int j = 0; j < 4; j++) {
+        listeg lists[4];
+        lists[0] = g->racines[i];
+        lists[1] = g->feuilles[i];
+        lists[2] = g->isole[i];
+        lists[3] = g->interne[i];
+        for (Nat j = 0; j < 4; j++) {
             listeg cur = lists[j];
             while (cur) {
                 Noeud n = (Noeud)cur->data;
@@ -491,462 +435,250 @@ Nat nbArcs(GDM* g) {
     return count;
 }
 
-Nat nbNoeuds(GDM* g) {
-    Nat count = 0;
-    listeg all_nodes = nouvlg();
-    for (Nat i = 0; i < N_ASCII; i++) {
-        listeg lists[] = {g->racines[i], g->feuilles[i], g->isole[i], g->interne[i]};
-        for (int j = 0; j < 4; j++) {
-            listeg cur = lists[j];
-            while (cur) {
-                Noeud n = (Noeud)cur->data;
-                if (!elemlg(all_nodes, n)) {
-                    all_nodes = adjtetelg(all_nodes, n);
-                    count++;
-                }
-                cur = cur->succ;
-            }
-        }
-    }
-    detruirelg(all_nodes);
-    return count;
-}
+// ============================================================================
+// Suffix search: find longest suffix from a leaf/isole, each non-leaf
+// node must have dege == 1
+// Returns a listeg of suffix nodes (first to last), sets *suf_len
+// ============================================================================
 
-None _updateNodeCategory(GDM* g, Noeud n) {
-    if (n == NULL) return;
-    Nat h = hashNoeud(n);
-    g->racines[h] = supelemg(g->racines[h], n, compareNoeud);
-    g->feuilles[h] = supelemg(g->feuilles[h], n, compareNoeud);
-    g->isole[h] = supelemg(g->isole[h], n, compareNoeud);
-    g->interne[h] = supelemg(g->interne[h], n, compareNoeud);
-    Bool is_root = estRacine(n), is_leaf = estFeuille(n);
-    if (is_root && is_leaf) {
-        if (!elemlg(g->isole[h], n)) g->isole[h] = adjtetelg(g->isole[h], n);
-    }
-    else if (is_root) {
-        if (!elemlg(g->racines[h], n)) g->racines[h] = adjtetelg(g->racines[h], n);
-    }
-    else if (is_leaf) {
-        if (!elemlg(g->feuilles[h], n)) g->feuilles[h] = adjtetelg(g->feuilles[h], n);
-    }
-    else {
-        if (!elemlg(g->interne[h], n)) g->interne[h] = adjtetelg(g->interne[h], n);
-    }
-}
-
-Noeud _queueNoeud(listeg l) {
-    if (l == NULL) return NULL;
-    listeg cur = l;
-    while (cur->succ != NULL) cur = cur->succ;
-    return (Noeud)cur->data;
-}
-
-
-listeg _inverseListe(listeg l) {
-    listeg prev = NULL;
-    while (l != NULL) {
-        listeg n = l->succ;
-        l->succ = prev;
-        prev = l;
-        l = n;
-    }
-    return prev;
-}
-
-None _incrementeCompteurs(listeg chemin) {
-    listeg cur = chemin;
-    while (cur != NULL) {
-        Noeud n = (Noeud)cur->data;
-        n->count++;
-        cur = cur->succ;
-    }
-}
-
-Bool _existeCheminNoeud(Noeud src, Noeud dst) {
-    if (src == NULL || dst == NULL) return false;
-
-    listeg a_traiter = adjtetelg(NULL, src);
-    listeg visites = NULL;
-
-    while (a_traiter != NULL) {
-        Noeud cur = (Noeud)tetelg(a_traiter);
-        a_traiter = supkiemelg(a_traiter, 0);
-
-        if (cur == dst) {
-            detruirelg(a_traiter);
-            detruirelg(visites);
-            return true;
-        }
-
-        if (elemlg(visites, cur) == NULL) {
-            visites = adjtetelg(visites, cur);
-            listeg succ = cur->lsucc;
-            while (succ != NULL) {
-                Noeud nx = (Noeud)succ->data;
-                if (elemlg(visites, nx) == NULL) a_traiter = adjtetelg(a_traiter, nx);
-                succ = succ->succ;
-            }
-        }
-    }
-
-    detruirelg(a_traiter);
-    detruirelg(visites);
-    return false;
-}
-
-Bool _ajouteArcEtMaj(GDM* g, Noeud nx, Noeud ny) {
-    if (g == NULL || nx == NULL || ny == NULL) return false;
-    if (elemlg(nx->lsucc, ny) != NULL) return false;
-    if (_existeCheminNoeud(ny, nx)) return false;
-    nx->lsucc = adjtetelg(nx->lsucc, ny);
-    ny->lpred = adjtetelg(ny->lpred, nx);
-    _updateNodeCategory(g, nx);
-    _updateNodeCategory(g, ny);
-    return true;
-}
-
-listeg _trouveCheminSuccRec(Noeud current, CarUTF8* s, Nat pos, Nat len) {
-    if (current == NULL || s == NULL || len == 0) return NULL;
-    if (pos + 1 == len) return adjtetelg(NULL, current);
-
-    CarUTF8 c = s[pos + 1];
-    listeg cur = current->lsucc;
-    while (cur != NULL) {
-        Noeud next = (Noeud)cur->data;
-        if (next->car == c) {
-            listeg rec = _trouveCheminSuccRec(next, s, pos + 1, len);
-            if (rec != NULL) return adjtetelg(rec, current);
-        }
-        cur = cur->succ;
-    }
-    return NULL;
-}
-
-listeg _trouvePrefixeLongueur(GDM* g, CarUTF8* s, Nat len_prefixe, Nat len_mot) {
-    if (g == NULL || s == NULL || len_prefixe == 0) return NULL;
-
-    Nat h = s[0] % N_ASCII;
-    listeg starts[] = {g->racines[h], g->isole[h]};
-    for (int i = 0; i < 2; i++) {
-        listeg cur = starts[i];
-        while (cur != NULL) {
-            Noeud n = (Noeud)cur->data;
-            if (n->car == s[0]) {
-                listeg chemin = _trouveCheminSuccRec(n, s, 0, len_prefixe);
-                if (chemin != NULL) {
-                    (void)len_mot;
-                    return chemin;
-                }
-            }
-            cur = cur->succ;
-        }
-    }
-    return NULL;
-}
-
-listeg _plusLongPrefixe(GDM* g, CarUTF8* s, Nat len_mot, Nat* len_prefixe) {
-    if (len_prefixe == NULL) return NULL;
-    *len_prefixe = 0;
-    if (g == NULL || s == NULL || len_mot == 0) return NULL;
-
-    Nat l = len_mot;
-    while (l > 0) {
-        listeg p = _trouvePrefixeLongueur(g, s, l, len_mot);
-        if (p != NULL) {
-            *len_prefixe = l;
-            return p;
-        }
-        l--;
-    }
-    return NULL;
-}
-
-listeg _trouveCheminPredRec(Noeud current, CarUTF8* s, Nat pos, Nat debut) {
-    if (current == NULL || s == NULL) return NULL;
-    if (pos == debut) return adjtetelg(NULL, current);
-
+Nat _suffixDepth(Noeud current, CarUTF8* s, Nat pos) {
+    if (pos >= 30000) return 0;
+    if (pos == 0) return 0;
     CarUTF8 c = s[pos - 1];
-    listeg cur = current->lpred;
-    while (cur != NULL) {
-        Noeud pred = (Noeud)cur->data;
-        if (pred->car == c) {
-            listeg rec = _trouveCheminPredRec(pred, s, pos - 1, debut);
-            if (rec != NULL) return adjtetelg(rec, current);
+    Nat best = 0;
+    listeg pcur = current->lpred;
+    while (pcur) {
+        Noeud pred = (Noeud)pcur->data;
+        if (pred->car == c && dege(pred) == 1) {
+            Nat depth = 1 + _suffixDepth(pred, s, pos - 1);
+            if (depth > best) best = depth;
         }
-        cur = cur->succ;
-    }
-    return NULL;
-}
-
-Nat _sommeCountsChemin(listeg l) {
-    Nat s = 0;
-    while (l != NULL) {
-        Noeud n = (Noeud)l->data;
-        if (n != NULL) s += n->count;
-        l = l->succ;
-    }
-    return s;
-}
-
-Bool _cheminMieuxPartage(listeg candidat, listeg reference) {
-    if (candidat == NULL) return false;
-    if (reference == NULL) return true;
-
-    listeg rc = _inverseListe(clonelg(candidat));
-    listeg rr = _inverseListe(clonelg(reference));
-
-    listeg c = rc;
-    listeg r = rr;
-    while (c != NULL && r != NULL) {
-        Noeud nc = (Noeud)c->data;
-        Noeud nr = (Noeud)r->data;
-        Nat cc = (nc != NULL) ? nc->count : 0;
-        Nat cr = (nr != NULL) ? nr->count : 0;
-        if (cc != cr) {
-            detruirelg(rc);
-            detruirelg(rr);
-            return cc > cr;
-        }
-        c = c->succ;
-        r = r->succ;
-    }
-
-    detruirelg(rc);
-    detruirelg(rr);
-
-    return _sommeCountsChemin(candidat) > _sommeCountsChemin(reference);
-}
-
-listeg _trouveSuffixeLongueur(GDM* g, CarUTF8* s, Nat len_mot, Nat len_suffixe, listeg prefixe) {
-    if (g == NULL || s == NULL || len_mot == 0 || len_suffixe == 0) return NULL;
-
-    Nat debut = len_mot - len_suffixe;
-    Nat h = s[len_mot - 1] % N_ASCII;
-    listeg ends[] = {g->feuilles[h], g->isole[h]};
-    listeg best = NULL;
-
-    for (int i = 0; i < 2; i++) {
-        listeg cur = ends[i];
-        while (cur != NULL) {
-            Noeud leaf = (Noeud)cur->data;
-            if (leaf->car == s[len_mot - 1]) {
-                listeg rev = _trouveCheminPredRec(leaf, s, len_mot - 1, debut);
-                if (rev != NULL) {
-                    listeg fwd = _inverseListe(rev);
-                    Bool has_overlap = false;
-                    if (prefixe != NULL) {
-                        listeg cfwd = fwd;
-                        while (cfwd != NULL) {
-                            if (elemlg(prefixe, cfwd->data)) { has_overlap = true; break; }
-                            cfwd = cfwd->succ;
-                        }
-                    }
-                    if (has_overlap) {
-                        detruirelg(fwd);
-                        cur = cur->succ;
-                        continue;
-                    }
-                    Noeud start = (Noeud)tetelg(fwd);
-                    if (len_suffixe < len_mot && estRacine(start)) {
-                        detruirelg(fwd);
-                    }
-                    else if (len_suffixe == len_mot && !estRacine(start)) {
-                        detruirelg(fwd);
-                    }
-                    else {
-                        if (_cheminMieuxPartage(fwd, best)) {
-                            if (best != NULL) detruirelg(best);
-                            best = fwd;
-                        }
-                        else {
-                            detruirelg(fwd);
-                        }
-                    }
-                }
-            }
-            cur = cur->succ;
-        }
+        pcur = pcur->succ;
     }
     return best;
 }
 
-listeg _plusLongSuffixe(GDM* g, CarUTF8* s, Nat len_mot, Nat max_suffixe, listeg prefixe, Nat* len_suffixe) {
-    if (len_suffixe == NULL) return NULL;
-    *len_suffixe = 0;
-    if (g == NULL || s == NULL || len_mot == 0 || max_suffixe == 0) return NULL;
-
-    Nat l = max_suffixe;
-    while (l > 0) {
-        listeg p = _trouveSuffixeLongueur(g, s, len_mot, l, prefixe);
-        if (p != NULL) {
-            *len_suffixe = l;
-            return p;
-        }
-        l--;
-    }
-    return NULL;
-}
-
-// ============================================================================
-// adjMot - Ajoute un mot (avec partage préfixe ET suffixe)
-// ============================================================================
-
-None adjMot(GDM* g, CarUTF8* s) {
-    if (g == NULL || s == NULL) return;
-    Nat mot_len = chaineUTF8Longueur(s);
-    if (mot_len == 0) return;
-
-    Bool deja_enregistre = _motEstEnregistre(g, s, mot_len);
-    if (!deja_enregistre) {
-        _enregistrerMotUnique(g, s, mot_len);
-    }
-
-    // Cas mot d'un seul caractère
-    if (mot_len == 1) {
-        Nat h = s[0] % N_ASCII;
-        Noeud iso = NULL;
-        listeg lists[] = {g->racines[h], g->feuilles[h], g->isole[h], g->interne[h]};
-        for (int j = 0; j < 4 && iso == NULL; j++) {
-            listeg cur = lists[j];
-            while (cur) {
-                Noeud n = (Noeud)cur->data;
-                if (n->car == s[0]) { iso = n; break; }
-                cur = cur->succ;
-            }
-        }
-        if (iso == NULL) {
-            iso = nouvNoeud(s[0]);
-            if (iso == NULL) return;
-            g->isole[hashNoeud(iso)] = adjtetelg(g->isole[hashNoeud(iso)], iso);
-        }
-        iso->count++;
-        iso->fin++;
-        return;
-    }
-
-    // Si le mot etait deja insere, incrementer en priorite le chemin memorise.
-    if (deja_enregistre) {
-        MotMemo m = _trouveMotMemo(g, s, mot_len);
-        if (m != NULL && m->chemin != NULL) {
-            listeg deja = _listeDepuisCheminMemo(m);
-            if (!videlg(deja)) {
-                _incrementeCompteurs(deja);
-                Noeud fin = _queueNoeud(deja);
-                if (fin != NULL) fin->fin++;
-                detruirelg(deja);
+None _buildSuffix(Noeud current, CarUTF8* s, Nat pos, Nat target_depth,
+                  Noeud result[], Nat* idx) {
+    if (target_depth == 0) return;
+    CarUTF8 c = s[pos - 1];
+    listeg pcur = current->lpred;
+    while (pcur) {
+        Noeud pred = (Noeud)pcur->data;
+        if (pred->car == c && dege(pred) == 1) {
+            Nat depth = 1 + _suffixDepth(pred, s, pos - 1);
+            if (depth == target_depth) {
+                result[(*idx)++] = pred;
+                _buildSuffix(pred, s, pos - 1, target_depth - 1, result, idx);
                 return;
             }
         }
-
-        // Repli de securite si le chemin memo n'est pas disponible.
-        listeg deja = existeMot(g, s);
-        if (!videlg(deja)) {
-            _incrementeCompteurs(deja);
-            Noeud fin = _queueNoeud(deja);
-            if (fin != NULL) fin->fin++;
-            detruirelg(deja);
-            return;
-        }
+        pcur = pcur->succ;
     }
+}
 
-    // --- Trouver le plus long préfixe existant ---
-    Nat lp = 0;
-    listeg prefixe = _plusLongPrefixe(g, s, mot_len, &lp);
+listeg _findSuffix(GDM* g, CarUTF8* s, Nat len, Nat* suf_len) {
+    *suf_len = 0;
+    if (len == 0) return NULL;
 
-    // --- Trouver le plus long suffixe existant (sans chevaucher le préfixe) ---
-    Nat ls = 0;
-    listeg suffixe = NULL;
-    Nat max_suffix = mot_len - lp;
-    if (max_suffix > 0) {
-        suffixe = _plusLongSuffixe(g, s, mot_len, max_suffix, prefixe, &ls);
+    CarUTF8 last = s[len - 1];
+    Nat h = last % N_ASCII;
+    Noeud end_node = NULL;
+
+    listeg cur = g->feuilles[h];
+    while (cur && !end_node) {
+        Noeud n = (Noeud)cur->data;
+        if (n->car == last) end_node = n;
+        cur = cur->succ;
     }
-
-
-
-    // Construire le tableau du chemin complet
-    Noeud chemin[26];
-    for (Nat i = 0; i < mot_len && i < 26; i++) chemin[i] = NULL;
-
-    // Remplir les nœuds du préfixe
-    if (prefixe != NULL) {
-        listeg cur = prefixe;
-        Nat idx = 0;
-        while (cur != NULL && idx < lp) {
-            chemin[idx] = (Noeud)cur->data;
+    if (!end_node) {
+        cur = g->isole[h];
+        while (cur && !end_node) {
+            Noeud n = (Noeud)cur->data;
+            if (n->car == last) end_node = n;
             cur = cur->succ;
-            idx++;
         }
     }
+    if (!end_node) return NULL;
 
-    // Remplir les nœuds du suffixe
-    if (suffixe != NULL) {
-        listeg cur = suffixe;
-        Nat idx = mot_len - ls;
-        while (cur != NULL && idx < mot_len) {
-            chemin[idx] = (Noeud)cur->data;
-            cur = cur->succ;
-            idx++;
+    Nat depth = _suffixDepth(end_node, s, len - 1);
+    *suf_len = depth + 1;
+
+    Noeud nodes[26];
+    Nat idx = 0;
+    nodes[idx++] = end_node;
+    _buildSuffix(end_node, s, len - 1, depth, nodes, &idx);
+
+    listeg suffix = NULL;
+    for (Nat i = 0; i < idx; i++)
+        suffix = adjtetelg(suffix, nodes[i]);
+    return suffix;
+}
+
+// ============================================================================
+// Prefix search: DFS through existing arcs from root, find longest match
+// Returns the length of the best prefix found, fills best[] array
+// ============================================================================
+
+Nat _prefixDFS(Noeud cur, CarUTF8* s, Nat pos, Nat max_pos,
+               listeg suffix_nodes, Noeud path[], Noeud best[], Nat best_len) {
+    if (pos > max_pos) return best_len;
+    CarUTF8 c = s[pos];
+
+    listeg sc = cur->lsucc;
+    while (sc) {
+        Noeud next = (Noeud)sc->data;
+        if (next->car == c && !estFeuille(next) && !estIsole(next)
+            && !elemlg(suffix_nodes, next)) {
+            path[pos] = next;
+            Nat candidate = pos + 1;
+            if (candidate > best_len) {
+                best_len = candidate;
+                for (Nat k = 0; k < candidate; k++) best[k] = path[k];
+            }
+            best_len = _prefixDFS(next, s, pos + 1, max_pos, suffix_nodes,
+                                  path, best, best_len);
         }
+        sc = sc->succ;
     }
+    return best_len;
+}
 
-    // Si pas de préfixe, créer ou trouver le nœud racine
-    if (lp == 0) {
-        Nat h0 = s[0] % N_ASCII;
-        Noeud premier = NULL;
-        listeg cur = g->racines[h0];
+// ============================================================================
+// adjMot - Ajoute un mot (suffix-first, then prefix, then infixe)
+// ============================================================================
+
+listeg existeMot(GDM* g, CarUTF8* s);
+
+listeg adjMot(GDM* g, CarUTF8* s) {
+    if (g == NULL || s == NULL) return NULL;
+    Nat mot_len = chaineUTF8Longueur(s);
+    if (mot_len == 0) return NULL;
+
+    // --- Single character ---
+    if (mot_len == 1) {
+        Nat h = s[0] % N_ASCII;
+        Noeud iso = NULL;
+        listeg cur = g->isole[h];
         while (cur) {
             Noeud n = (Noeud)cur->data;
-            if (n->car == s[0]) { premier = n; break; }
-            cur = cur->succ;
+            if (n->car == s[0]) { iso = n; cur = NULL; }
+            else cur = cur->succ;
         }
-        if (premier == NULL) {
-            cur = g->isole[h0];
+        if (!iso) {
+            cur = g->racines[h];
             while (cur) {
                 Noeud n = (Noeud)cur->data;
-                if (n->car == s[0]) { premier = n; break; }
-                cur = cur->succ;
+                if (n->car == s[0]) { iso = n; cur = NULL; }
+                else cur = cur->succ;
             }
         }
-        if (premier == NULL) {
-            premier = nouvNoeud(s[0]);
-            if (premier == NULL) { detruirelg(prefixe); detruirelg(suffixe); return; }
-            g->racines[hashNoeud(premier)] = adjtetelg(g->racines[hashNoeud(premier)], premier);
+        if (!iso) {
+            iso = nouvNoeud(s[0]);
+            g->isole[hashNoeud(iso)] = adjtetelg(g->isole[hashNoeud(iso)], iso);
         }
-        chemin[0] = premier;
-        lp = 1;
+        iso->count++;
+        return NULL;
     }
 
-    // Créer les nœuds manquants (entre préfixe et suffixe)
-    Nat gap_end = mot_len - ls;
-    for (Nat i = lp; i < gap_end; i++) {
+    // --- Word already exists: just increment counts ---
+    listeg existing = existeMot(g, s);
+    if (!videlg(existing)) {
+        listeg tmp = existing;
+        while (tmp) {
+            ((Noeud)tmp->data)->count++;
+            tmp = tmp->succ;
+        }
+        detruirelg(existing);
+        return NULL;
+    }
+
+    // --- Find longest suffix (leave position 0 for root) ---
+    Nat suf_len = 0;
+    listeg suffix_list = _findSuffix(g, s, mot_len, &suf_len);
+
+    // --- Find longest prefix ---
+    Nat max_prefix_pos = mot_len - suf_len - 1;
+    Noeud chemin[26];
+    for (Nat i = 0; i < 26; i++) chemin[i] = NULL;
+
+    Nat pref_len = 0;
+    Noeud root_node = NULL;
+    Nat h0 = s[0] % N_ASCII;
+
+    listeg rcur = g->racines[h0];
+    while (rcur && !root_node) {
+        Noeud n = (Noeud)rcur->data;
+        if (n->car == s[0]) root_node = n;
+        rcur = rcur->succ;
+    }
+    if (!root_node) {
+        rcur = g->isole[h0];
+        while (rcur && !root_node) {
+            Noeud n = (Noeud)rcur->data;
+            if (n->car == s[0]) root_node = n;
+            rcur = rcur->succ;
+        }
+    }
+
+    if (root_node && !elemlg(suffix_list, root_node)) {
+        Noeud best[26];
+        Noeud path[26];
+        path[0] = root_node;
+        best[0] = root_node;
+        pref_len = 1;
+        if (mot_len - suf_len > 1) {
+            pref_len = _prefixDFS(root_node, s, 1, max_prefix_pos,
+                                  suffix_list, path, best, 1);
+        }
+        for (Nat i = 0; i < pref_len; i++) chemin[i] = best[i];
+
+        // Trim prefix if last node has degi > 1 (prevent forbidden words)
+        while (pref_len > 1 && degi(chemin[pref_len - 1]) > 1) {
+            pref_len--;
+        }
+        if (pref_len == 1 && root_node != NULL) {
+            chemin[0] = root_node;
+        }
+    }
+
+    // --- If no root found, create one ---
+    if (pref_len == 0) {
+        if (!root_node) {
+            root_node = nouvNoeud(s[0]);
+            g->racines[hashNoeud(root_node)] =
+                adjtetelg(g->racines[hashNoeud(root_node)], root_node);
+        }
+        chemin[0] = root_node;
+        pref_len = 1;
+    }
+
+    // --- Fill suffix nodes into chemin ---
+    if (suf_len > 0 && suffix_list != NULL) {
+        listeg scur = suffix_list;
+        Nat idx = mot_len - suf_len;
+        while (scur && idx < mot_len) {
+            chemin[idx] = (Noeud)scur->data;
+            idx++;
+            scur = scur->succ;
+        }
+    }
+
+    // --- Create infixe nodes ---
+    Nat gap_start = pref_len;
+    Nat gap_end = mot_len - suf_len;
+    for (Nat i = gap_start; i < gap_end; i++) {
         Noeud n = nouvNoeud(s[i]);
-        if (n == NULL) { detruirelg(prefixe); detruirelg(suffixe); return; }
         chemin[i] = n;
-        Nat h = hashNoeud(n);
-        g->isole[h] = adjtetelg(g->isole[h], n);
+        g->isole[hashNoeud(n)] = adjtetelg(g->isole[hashNoeud(n)], n);
     }
 
-    // Vérifier si la connexion gap->suffixe créerait un cycle
-    if (ls > 0 && gap_end > 0 && chemin[gap_end - 1] != NULL && chemin[gap_end] != NULL) {
-        if (_existeCheminNoeud(chemin[gap_end], chemin[gap_end - 1])) {
-            // Cycle détecté : abandonner le suffixe, créer des nœuds frais
-            for (Nat i = gap_end; i < mot_len; i++) {
-                Noeud n = nouvNoeud(s[i]);
-                if (n == NULL) { detruirelg(prefixe); detruirelg(suffixe); return; }
-                chemin[i] = n;
-                Nat h = hashNoeud(n);
-                g->isole[h] = adjtetelg(g->isole[h], n);
-            }
-            ls = 0;
-        }
-    }
-
-    // Connecter tous les nœuds consécutifs qui ne sont pas encore connectés
+    // --- Connect all consecutive nodes ---
     for (Nat i = 0; i < mot_len - 1; i++) {
         Noeud nx = chemin[i];
         Noeud ny = chemin[i + 1];
         if (nx == NULL || ny == NULL) continue;
-        if (elemlg(nx->lsucc, ny) == NULL) {
+        if (!elemlg(nx->lsucc, ny)) {
             nx->lsucc = adjtetelg(nx->lsucc, ny);
             ny->lpred = adjtetelg(ny->lpred, nx);
             _updateNodeCategory(g, nx);
@@ -954,174 +686,188 @@ None adjMot(GDM* g, CarUTF8* s) {
         }
     }
 
-    // Incrémenter les compteurs pour tous les nœuds du chemin
+    // --- Increment counts ---
     for (Nat i = 0; i < mot_len; i++) {
         if (chemin[i] != NULL) chemin[i]->count++;
     }
 
-    // Marquer la fin du mot
-    if (chemin[mot_len - 1] != NULL) chemin[mot_len - 1]->fin++;
-
-    _enregistrerCheminMot(g, s, mot_len, chemin);
-
-    detruirelg(prefixe);
-    detruirelg(suffixe);
+    detruirelg(suffix_list);
+    return NULL;
 }
 
 // ============================================================================
-// existeMot - Recherche un mot 
+// existeChemin
 // ============================================================================
 
-listeg _existeMot_rec(Noeud current, CarUTF8* s, Nat pos, Nat len) {
-    // Fin du mot: retourner sentinelle non-NULL pour indiquer succès
-    if (pos >= len) {
-        if (current != NULL && current->fin > 0) return adjtetelg(NULL, (Joker)0x1);
+listeg existeChemin(GDM* g, CarUTF8* m, Nat nc, Noeud nx, Noeud ny) {
+    (void)g;
+    if (nc == 0) {
+        if (elemlg(nx->lsucc, ny))
+            return adjtetelg(adjtetelg(NULL, ny), nx);
         return NULL;
     }
-    
-    CarUTF8 c = s[pos];
-    listeg cur = current->lsucc;
-    listeg best = NULL;
+    CarUTF8 c = m[0];
+    listeg cur = nx->lsucc;
     while (cur) {
         Noeud next = (Noeud)cur->data;
-        if (next && next->car == c) {
-            listeg result = _existeMot_rec(next, s, pos + 1, len);
-            if (result != NULL) {
-                // Retirer sentinelle si présente
-                if (result->data == (Joker)0x1) {
-                    listeg sentinel = result;
-                    result = result->succ;
-                    FREE(sentinel);
-                }
-                result = adjtetelg(result, next);
-                if (_cheminMieuxPartage(result, best)) {
-                    if (best != NULL) detruirelg(best);
-                    best = result;
-                }
-                else {
-                    detruirelg(result);
-                }
-            }
+        if (next->car == c) {
+            listeg sub = existeChemin(g, m + 1, nc - 1, next, ny);
+            if (sub != NULL)
+                return adjtetelg(sub, nx);
         }
         cur = cur->succ;
     }
-    return best;
+    return NULL;
 }
+
+// ============================================================================
+// existeMot
+// ============================================================================
 
 listeg existeMot(GDM* g, CarUTF8* s) {
     if (g == NULL || s == NULL) return NULL;
     Nat mot_len = chaineUTF8Longueur(s);
     if (mot_len == 0) return NULL;
-    if (!_motEstEnregistre(g, s, mot_len)) return NULL;
-    
-    CarUTF8 c0 = s[0];
-    Nat h = c0 % N_ASCII;
-    
-    // Le premier caractere doit partir d'une racine (ou noeud isole)
-    listeg best = NULL;
-    listeg lists[] = {g->racines[h], g->isole[h], NULL, NULL};
-    for (int j = 0; j < 4; j++) {
-        listeg cur = lists[j];
-        while (cur) {
-            Noeud n = (Noeud)cur->data;
-            if (n->car == c0) {
-                listeg result = _existeMot_rec(n, s, 1, mot_len);
-                if (result != NULL) {
-                    if (result->data == (Joker)0x1) {
-                        listeg sentinel = result;
-                        result = result->succ;
-                        FREE(sentinel);
-                    }
-                    result = adjtetelg(result, n);
-                    if (_cheminMieuxPartage(result, best)) {
-                        if (best != NULL) detruirelg(best);
-                        best = result;
-                    }
-                    else {
-                        detruirelg(result);
-                    }
-                }
+
+    if (mot_len == 1) {
+        Noeud iso = existeNoeud(g, s[0], true, true);
+        if (iso && iso->count > 0) return adjtetelg(NULL, iso);
+        Noeud root = existeNoeud(g, s[0], true, false);
+        if (root && root->count > 0) return adjtetelg(NULL, root);
+        return NULL;
+    }
+
+    Nat h0 = s[0] % N_ASCII;
+    Nat hlast = s[mot_len - 1] % N_ASCII;
+
+    // Find roots/isole matching first char
+    Noeud starts[10];
+    Nat nstarts = 0;
+    listeg cur = g->racines[h0];
+    while (cur && nstarts < 10) {
+        Noeud n = (Noeud)cur->data;
+        if (n->car == s[0]) starts[nstarts++] = n;
+        cur = cur->succ;
+    }
+    cur = g->isole[h0];
+    while (cur && nstarts < 10) {
+        Noeud n = (Noeud)cur->data;
+        if (n->car == s[0]) starts[nstarts++] = n;
+        cur = cur->succ;
+    }
+
+    // Find leaves/isole matching last char
+    Noeud ends[10];
+    Nat nends = 0;
+    cur = g->feuilles[hlast];
+    while (cur && nends < 10) {
+        Noeud n = (Noeud)cur->data;
+        if (n->car == s[mot_len - 1]) ends[nends++] = n;
+        cur = cur->succ;
+    }
+    cur = g->isole[hlast];
+    while (cur && nends < 10) {
+        Noeud n = (Noeud)cur->data;
+        if (n->car == s[mot_len - 1]) ends[nends++] = n;
+        cur = cur->succ;
+    }
+
+    for (Nat si = 0; si < nstarts; si++) {
+        for (Nat ei = 0; ei < nends; ei++) {
+            if (mot_len == 2) {
+                if (elemlg(starts[si]->lsucc, ends[ei]))
+                    return adjtetelg(adjtetelg(NULL, ends[ei]), starts[si]);
+            } else {
+                listeg path = existeChemin(g, s + 1, mot_len - 2,
+                                           starts[si], ends[ei]);
+                if (path != NULL) return path;
             }
-            cur = cur->succ;
         }
     }
-    return best;
+    return NULL;
 }
 
 // ============================================================================
 // completion
 // ============================================================================
 
-None _dfs_completion(GDM* g, Noeud n, listeg prefix, Nat depth, listeg mots[], Nat* nc, Nat max);
+None _dfs_completion(Noeud n, listeg prefix, listeg mots[], Nat* nc, Nat max) {
+    if (n == NULL || *nc >= max) return;
+
+    if (estFeuille(n) || estIsole(n)) {
+        mots[*nc] = clonelg(prefix);
+        (*nc)++;
+        if (*nc >= max) return;
+    }
+
+    listeg succ = n->lsucc;
+    while (succ != NULL && *nc < max) {
+        Noeud child = (Noeud)succ->data;
+
+        listeg extended = clonelg(prefix);
+        listeg tail = extended;
+        while (tail != NULL && tail->succ != NULL) tail = tail->succ;
+        listeg new_node = adjtetelg(NULL, child);
+        if (tail == NULL) extended = new_node;
+        else tail->succ = new_node;
+
+        _dfs_completion(child, extended, mots, nc, max);
+        detruirelg(extended);
+        succ = succ->succ;
+    }
+}
 
 Nat completion(GDM* g, CarUTF8* s, listeg mots[], Nat max) {
     if (g == NULL || s == NULL || mots == NULL || max == 0) return 0;
     Nat mot_len = chaineUTF8Longueur(s);
     if (mot_len == 0) return 0;
 
-    listeg prefix = _trouvePrefixeLongueur(g, s, mot_len, mot_len);
-    if (prefix == NULL) return 0;
+    Noeud current = NULL;
+    listeg prefix = NULL;
 
-    Noeud current_node = _queueNoeud(prefix);
-    if (current_node == NULL) {
-        detruirelg(prefix);
-        return 0;
+    for (Nat i = 0; i < mot_len; i++) {
+        CarUTF8 c = s[i];
+        Noeud next_node = NULL;
+        if (i == 0) {
+            Nat h = c % N_ASCII;
+            listeg cur = g->racines[h];
+            while (cur && !next_node) {
+                Noeud t = (Noeud)cur->data;
+                if (t->car == c) next_node = t;
+                cur = cur->succ;
+            }
+            if (!next_node) {
+                cur = g->isole[h];
+                while (cur && !next_node) {
+                    Noeud t = (Noeud)cur->data;
+                    if (t->car == c) next_node = t;
+                    cur = cur->succ;
+                }
+            }
+        } else {
+            if (current == NULL) { detruirelg(prefix); return 0; }
+            listeg cur = current->lsucc;
+            while (cur && !next_node) {
+                Noeud t = (Noeud)cur->data;
+                if (t->car == c) next_node = t;
+                cur = cur->succ;
+            }
+        }
+        if (next_node == NULL) { detruirelg(prefix); return 0; }
+        current = next_node;
+        prefix = adjtetelg(prefix, current);
     }
+
+    // Reverse prefix (adjtetelg builds in reverse order)
+    listeg rev = NULL;
+    listeg tmp = prefix;
+    while (tmp) { rev = adjtetelg(rev, tmp->data); tmp = tmp->succ; }
+    detruirelg(prefix);
 
     Nat nc = 0;
-    _dfs_completion(g, current_node, prefix, mot_len, mots, &nc, max);
-    detruirelg(prefix);
+    _dfs_completion(current, rev, mots, &nc, max);
+    detruirelg(rev);
     return nc;
-}
-
-None _dfs_completion(GDM* g, Noeud n, listeg prefix, Nat depth, listeg mots[], Nat* nc, Nat max) {
-    if (n == NULL || *nc >= max) return;
-    if (depth > 25) return;
-
-    Nat ns = longueurlg(n->lsucc);
-    if (ns > 0) {
-        Noeud* children = MALLOCN(Noeud, ns);
-        if (children != NULL) {
-            Nat filled = 0;
-            listeg succ = n->lsucc;
-            while (succ != NULL && filled < ns) {
-                children[filled++] = (Noeud)succ->data;
-                succ = succ->succ;
-            }
-
-            for (Nat i = 1; i < filled; i++) {
-                Noeud key = children[i];
-                Ent j = (Ent)i - 1;
-                while (j >= 0 && compareCarUTF8(children[j]->car, key->car) > 0) {
-                    children[j + 1] = children[j];
-                    j--;
-                }
-                children[j + 1] = key;
-            }
-
-            for (Nat i = 0; i < filled && *nc < max; i++) {
-                Noeud child = children[i];
-                if (child == NULL) continue;
-
-                listeg extended = clonelg(prefix);
-                listeg tail = extended;
-                while (tail != NULL && tail->succ != NULL) tail = tail->succ;
-                listeg new_node = adjtetelg(NULL, child);
-                if (tail == NULL) extended = new_node;
-                else tail->succ = new_node;
-
-                _dfs_completion(g, child, extended, depth + 1, mots, nc, max);
-                detruirelg(extended);
-            }
-
-            FREE(children);
-        }
-    }
-
-    if (*nc < max && n->fin > 0 && _cheminEstMotValide(g, prefix)) {
-        mots[*nc] = clonelg(prefix);
-        (*nc)++;
-    }
 }
 
 // ============================================================================
@@ -1130,41 +876,41 @@ None _dfs_completion(GDM* g, Noeud n, listeg prefix, Nat depth, listeg mots[], N
 
 int main() {
     printf("TEST CarUTF8\n----------------\n");
-    Nat lg, ni;
-    unsigned char* utfm[3] = { 
-        (unsigned char*)"ùéäçà€", 
+    Nat lg;
+    Nat ni;
+    unsigned char* utfm[3] = {
+        (unsigned char*)"ùéäçà€",
         (unsigned char*)"\xC3\xA9motions",
-        (unsigned char*)"\xC3\xB1\xE2\x82\xAC\0" 
+        (unsigned char*)"\xC3\xB1\xE2\x82\xAC\0"
     };
     for (Nat i = 0; i < 3; i++) {
         CarUTF8* s = enChaineUTF8(utfm[i], &lg, &ni);
         printf("%s - len:%d, invalid:%d\n", utfm[i], lg, ni);
-        Nat j = 0; 
-        while (s[j] != 0) { 
-            printf("%0x(%s) ", s[j], estAlpha(s[j]) ? "a" : " "); 
-            j++; 
+        Nat j = 0;
+        while (s[j] != 0) {
+            printf("%0x(%s) ", s[j], estAlpha(s[j]) ? "a" : " ");
+            j++;
         }
         printf("\n");
         FREE(s);
     }
 
     printf("TEST BASIQUE\n----------------\n");
-    unsigned char* m[15] = { 
-        (unsigned char*)"fiction", (unsigned char*)"lotion", (unsigned char*)"notion", 
-        (unsigned char*)"nation", (unsigned char*)"locomotion", (unsigned char*)"unions", 
+    unsigned char* m[15] = {
+        (unsigned char*)"fiction", (unsigned char*)"lotion", (unsigned char*)"notion",
+        (unsigned char*)"nation", (unsigned char*)"locomotion", (unsigned char*)"unions",
         (unsigned char*)"\xC3\xA9motions", (unsigned char*)"punition",
         (unsigned char*)"natation", (unsigned char*)"pions", (unsigned char*)"unir",
-        (unsigned char*)"punir", (unsigned char*)"station", (unsigned char*)"pion", 
-        (unsigned char*)"location" 
+        (unsigned char*)"punir", (unsigned char*)"station", (unsigned char*)"pion",
+        (unsigned char*)"location"
     };
 
-    GDM g; 
+    GDM g;
     initGDM(&g);
     for (Nat i = 0; i < 15; i++) {
         CarUTF8* s = enChaineUTF8(m[i], &lg, &ni);
         printf("adj   %d: %s -> %d (invalid:%d)\n", i, m[i], lg, ni);
         adjMot(&g, s);
-
         FREE(s);
     }
     printf("GDM nracines:%d\n", nbRacines(&g));
@@ -1172,22 +918,21 @@ int main() {
     printf("GDM nInterne:%d\n", nbInternes(&g));
     printf("GDM nArcs: %d\n", nbArcs(&g));
 
-    unsigned char* rech[5] = { 
+    unsigned char* rech[5] = {
         (unsigned char*)"passage", (unsigned char*)"vague",
-        (unsigned char*)"punition", (unsigned char*)"Homme", (unsigned char*)"permis" 
+        (unsigned char*)"punition", (unsigned char*)"Homme", (unsigned char*)"permis"
     };
     for (Nat i = 0; i < 5; i++) {
         CarUTF8* s = enChaineUTF8(rech[i], &lg, &ni);
         listeg mot = existeMot(&g, s);
         if (videlg(mot)) printf("le mot: %s n'existe pas\n", rech[i]);
         else printf("le mot: %s existe\n", rech[i]);
-
         listeg tmp = mot;
         while (tmp != NULL) {
             Noeud x = (Noeud)tmp->data;
-            if ((x->car >> 8) == 0) 
+            if ((x->car >> 8) == 0)
                 printf("'%c'0x%x(%d) ", (char)x->car, x->car, x->count);
-            else 
+            else
                 printf("'%c%c'0x%x(%d) ", (char)(x->car >> 8), (char)(x->car & 0xff), x->car, x->count);
             tmp = nextlg(tmp);
         }
@@ -1201,7 +946,8 @@ int main() {
     initGDM(&g);
     FILE* fd = fopen("texte.txt", "rb");
     if (fd == NULL) { perror("cannot open file:"); return 1; }
-    Nat capacite = 1000, k = 0;
+    Nat capacite = 1000;
+    Nat k = 0;
     unsigned char* txt = MALLOCN(unsigned char, capacite);
     while (!feof(fd)) {
         if (k == capacite) {
@@ -1216,14 +962,15 @@ int main() {
     txt[k] = 0;
     fclose(fd);
     printf("Lecture du fichier texte.txt: %u octets\n", k);
-    
+
     CarUTF8* s = enChaineUTF8(txt, &lg, &ni);
     printf("Longueur %d - dont %d caracteres invalides\n", lg, ni);
     FREE(txt);
 
     k = 0;
     CarUTF8 mot[26];
-    Nat i = 0, count = 0;
+    Nat i = 0;
+    Nat count = 0;
     while (s[k] != 0) {
         CarUTF8 c = s[k];
         if (estAlpha(c) || estNum(c)) {
@@ -1235,9 +982,9 @@ int main() {
                 if (count % 100 == 0) {
                     printf("mot %d -> len=%d (to position %d)\n", count, i, k);
                     for (Nat q = 0; q < i; q++) {
-                        if ((mot[q] >> 8) == 0) 
+                        if ((mot[q] >> 8) == 0)
                             printf("'%c'0x%x ", (char)mot[q], mot[q]);
-                        else 
+                        else
                             printf("'%c%c'0x%x ", (char)(mot[q] >> 8), (char)(mot[q] & 0xff), mot[q]);
                     }
                     printf("\n");
@@ -1250,24 +997,23 @@ int main() {
         k++;
     }
     FREE(s);
-    
+
     printf("GDM nracines:%d\n", nbRacines(&g));
     printf("GDM nfeuilles:%d\n", nbFeuilles(&g));
     printf("GDM nInterne:%d\n", nbInternes(&g));
     printf("GDM nArcs: %d\n", nbArcs(&g));
-    
+
     for (Nat i = 0; i < 5; i++) {
         CarUTF8* s = enChaineUTF8(rech[i], &lg, &ni);
         listeg mot = existeMot(&g, s);
         if (videlg(mot)) printf("le mot: %s n'existe pas\n", rech[i]);
         else printf("le mot: %s existe\n", rech[i]);
-
         listeg tmp = mot;
         while (tmp != NULL) {
             Noeud x = (Noeud)tmp->data;
-            if ((x->car >> 8) == 0) 
+            if ((x->car >> 8) == 0)
                 printf("'%c'0x%x(%d) ", (char)x->car, x->car, x->count);
-            else 
+            else
                 printf("'%c%c'0x%x(%d) ", (char)(x->car >> 8), (char)(x->car & 0xff), x->car, x->count);
             tmp = nextlg(tmp);
         }
@@ -1279,25 +1025,25 @@ int main() {
     printf("\nTEST COMPLETION\n----------------\n");
     listeg complet[50];
     CarUTF8 motc[] = { 0x65, 0x73, 0x70, 0 };
-    i = 0;  
+    i = 0;
     while (motc[i] != 0) {
-        if ((motc[i] >> 8) == 0) 
+        if ((motc[i] >> 8) == 0)
             printf("'%c'0x%x ", (char)motc[i], motc[i]);
-        else 
+        else
             printf("'%c%c'0x%x ", (char)(motc[i] >> 8), (char)(motc[i] & 0xff), motc[i]);
         i++;
     }
     printf(" ... \n");
-    
+
     Nat nc = completion(&g, motc, complet, 50);
     for (Nat i = 0; i < nc; i++) {
         listeg tmp = complet[i];
         printf("mot %d:", i);
         while (tmp != NULL) {
             Noeud x = (Noeud)tmp->data;
-            if ((x->car >> 8) == 0) 
+            if ((x->car >> 8) == 0)
                 printf("'%c'0x%x ", (char)x->car, x->car);
-            else 
+            else
                 printf("'%c%c'0x%x ", (char)(x->car >> 8), (char)(x->car & 0xff), x->car);
             tmp = nextlg(tmp);
         }
