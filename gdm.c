@@ -481,7 +481,7 @@ listeg _findSuffix(GDM* g, CarUTF8* s, Nat len, Nat* suf_len) {
         listeg pcur = current->lpred;
         while (pcur) {
             Noeud pred = (Noeud)pcur->data;
-            if (pred->car == c && dege(pred) == 1) {
+            if (pred->car == c && dege(pred) == 1 && !estRacine(pred)) {
                 found = pred;
                 pcur = NULL;
             } else {
