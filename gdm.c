@@ -441,42 +441,6 @@ Nat nbArcs(GDM* g) {
 // Returns a listeg of suffix nodes (first to last), sets *suf_len
 // ============================================================================
 
-Nat _suffixDepth(Noeud current, CarUTF8* s, Nat pos) {
-    if (pos >= 30000) return 0;
-    if (pos == 0) return 0;
-    CarUTF8 c = s[pos - 1];
-    Nat best = 0;
-    listeg pcur = current->lpred;
-    while (pcur) {
-        Noeud pred = (Noeud)pcur->data;
-        if (pred->car == c && dege(pred) == 1) {
-            Nat depth = 1 + _suffixDepth(pred, s, pos - 1);
-            if (depth > best) best = depth;
-        }
-        pcur = pcur->succ;
-    }
-    return best;
-}
-
-None _buildSuffix(Noeud current, CarUTF8* s, Nat pos, Nat target_depth,
-                  Noeud result[], Nat* idx) {
-    if (target_depth == 0) return;
-    CarUTF8 c = s[pos - 1];
-    listeg pcur = current->lpred;
-    while (pcur) {
-        Noeud pred = (Noeud)pcur->data;
-        if (pred->car == c && dege(pred) == 1) {
-            Nat depth = 1 + _suffixDepth(pred, s, pos - 1);
-            if (depth == target_depth) {
-                result[(*idx)++] = pred;
-                _buildSuffix(pred, s, pos - 1, target_depth - 1, result, idx);
-                return;
-            }
-        }
-        pcur = pcur->succ;
-    }
-}
-
 listeg _findSuffix(GDM* g, CarUTF8* s, Nat len, Nat* suf_len) {
     *suf_len = 0;
     if (len == 0) return NULL;
@@ -501,13 +465,38 @@ listeg _findSuffix(GDM* g, CarUTF8* s, Nat len, Nat* suf_len) {
     }
     if (!end_node) return NULL;
 
-    Nat depth = _suffixDepth(end_node, s, len - 1);
-    *suf_len = depth + 1;
-
     Noeud nodes[26];
     Nat idx = 0;
     nodes[idx++] = end_node;
-    _buildSuffix(end_node, s, len - 1, depth, nodes, &idx);
+    *suf_len = 1;
+
+    Noeud current = end_node;
+    Nat pos = len - 1;
+    while (pos > 0) {
+        pos--;
+        CarUTF8 c = s[pos];
+        Noeud found = NULL;
+        listeg pcur = current->lpred;
+        while (pcur) {
+            Noeud pred = (Noeud)pcur->data;
+            if (pred->car == c && dege(pred) == 1) {
+                found = pred;
+                pcur = NULL;
+            } else {
+                pcur = pcur->succ;
+            }
+        }
+        if (!found) { pos++; }
+        if (!found) {
+            listeg suffix = NULL;
+            for (Nat i = 0; i < idx; i++)
+                suffix = adjtetelg(suffix, nodes[i]);
+            return suffix;
+        }
+        nodes[idx++] = found;
+        (*suf_len)++;
+        current = found;
+    }
 
     listeg suffix = NULL;
     for (Nat i = 0; i < idx; i++)
@@ -529,7 +518,7 @@ Nat _prefixDFS(Noeud cur, CarUTF8* s, Nat pos, Nat max_pos,
     while (sc) {
         Noeud next = (Noeud)sc->data;
         if (next->car == c && !estFeuille(next) && !estIsole(next)
-            && !elemlg(suffix_nodes, next)) {
+            && !elemlg(suffix_nodes, next) && degi(next) <= 1) {
             path[pos] = next;
             Nat candidate = pos + 1;
             if (candidate > best_len) {
@@ -593,12 +582,20 @@ listeg adjMot(GDM* g, CarUTF8* s) {
         return NULL;
     }
 
-    // --- Find longest suffix (leave position 0 for root) ---
+    // --- Find longest suffix ---
     Nat suf_len = 0;
     listeg suffix_list = _findSuffix(g, s, mot_len, &suf_len);
 
-    // --- Find longest prefix ---
-    Nat max_prefix_pos = mot_len - suf_len - 1;
+    // Suffix must not cover position 0 (reserved for root)
+    if (suf_len >= mot_len && suffix_list) {
+        suf_len = mot_len - 1;
+        listeg old = suffix_list;
+        suffix_list = suffix_list->succ;
+        FREE(old);
+    }
+
+    // --- Find longest prefix (greedy forward, strict degi) ---
+    Nat max_prefix_pos = (suf_len < mot_len) ? (mot_len - suf_len - 1) : 0;
     Noeud chemin[26];
     for (Nat i = 0; i < 26; i++) chemin[i] = NULL;
 
@@ -622,23 +619,27 @@ listeg adjMot(GDM* g, CarUTF8* s) {
     }
 
     if (root_node && !elemlg(suffix_list, root_node)) {
-        Noeud best[26];
-        Noeud path[26];
-        path[0] = root_node;
-        best[0] = root_node;
+        chemin[0] = root_node;
         pref_len = 1;
-        if (mot_len - suf_len > 1) {
-            pref_len = _prefixDFS(root_node, s, 1, max_prefix_pos,
-                                  suffix_list, path, best, 1);
-        }
-        for (Nat i = 0; i < pref_len; i++) chemin[i] = best[i];
-
-        // Trim prefix if last node has degi > 1 (prevent forbidden words)
-        while (pref_len > 1 && degi(chemin[pref_len - 1]) > 1) {
-            pref_len--;
-        }
-        if (pref_len == 1 && root_node != NULL) {
-            chemin[0] = root_node;
+        Noeud cur = root_node;
+        for (Nat pos = 1; pos <= max_prefix_pos; pos++) {
+            CarUTF8 c = s[pos];
+            Noeud found = NULL;
+            listeg sc = cur->lsucc;
+            while (sc && !found) {
+                Noeud next = (Noeud)sc->data;
+                if (next->car == c && !estFeuille(next) && !estIsole(next)
+                    && !elemlg(suffix_list, next) && degi(next) <= 1) {
+                    found = next;
+                }
+                sc = sc->succ;
+            }
+            if (!found) { pos = max_prefix_pos + 1; }
+            else {
+                chemin[pos] = found;
+                pref_len = pos + 1;
+                cur = found;
+            }
         }
     }
 
@@ -817,56 +818,64 @@ None _dfs_completion(Noeud n, listeg prefix, listeg mots[], Nat* nc, Nat max) {
     }
 }
 
+None _completion_from_prefix(GDM* g, CarUTF8* s, Nat pos, Nat mot_len,
+                            Noeud current, listeg prefix,
+                            listeg mots[], Nat* nc, Nat max) {
+    if (*nc >= max) return;
+
+    if (pos == mot_len) {
+        listeg rev = NULL;
+        listeg tmp = prefix;
+        while (tmp) { rev = adjtetelg(rev, tmp->data); tmp = tmp->succ; }
+        _dfs_completion(current, rev, mots, nc, max);
+        detruirelg(rev);
+        return;
+    }
+
+    CarUTF8 c = s[pos];
+    if (pos == 0) {
+        Nat h = c % N_ASCII;
+        listeg cur = g->racines[h];
+        while (cur && *nc < max) {
+            Noeud t = (Noeud)cur->data;
+            if (t->car == c) {
+                listeg ext = adjtetelg(clonelg(prefix), t);
+                _completion_from_prefix(g, s, pos + 1, mot_len, t, ext, mots, nc, max);
+                detruirelg(ext);
+            }
+            cur = cur->succ;
+        }
+        cur = g->isole[h];
+        while (cur && *nc < max) {
+            Noeud t = (Noeud)cur->data;
+            if (t->car == c) {
+                listeg ext = adjtetelg(clonelg(prefix), t);
+                _completion_from_prefix(g, s, pos + 1, mot_len, t, ext, mots, nc, max);
+                detruirelg(ext);
+            }
+            cur = cur->succ;
+        }
+    } else {
+        listeg cur = current->lsucc;
+        while (cur && *nc < max) {
+            Noeud t = (Noeud)cur->data;
+            if (t->car == c) {
+                listeg ext = adjtetelg(clonelg(prefix), t);
+                _completion_from_prefix(g, s, pos + 1, mot_len, t, ext, mots, nc, max);
+                detruirelg(ext);
+            }
+            cur = cur->succ;
+        }
+    }
+}
+
 Nat completion(GDM* g, CarUTF8* s, listeg mots[], Nat max) {
     if (g == NULL || s == NULL || mots == NULL || max == 0) return 0;
     Nat mot_len = chaineUTF8Longueur(s);
     if (mot_len == 0) return 0;
 
-    Noeud current = NULL;
-    listeg prefix = NULL;
-
-    for (Nat i = 0; i < mot_len; i++) {
-        CarUTF8 c = s[i];
-        Noeud next_node = NULL;
-        if (i == 0) {
-            Nat h = c % N_ASCII;
-            listeg cur = g->racines[h];
-            while (cur && !next_node) {
-                Noeud t = (Noeud)cur->data;
-                if (t->car == c) next_node = t;
-                cur = cur->succ;
-            }
-            if (!next_node) {
-                cur = g->isole[h];
-                while (cur && !next_node) {
-                    Noeud t = (Noeud)cur->data;
-                    if (t->car == c) next_node = t;
-                    cur = cur->succ;
-                }
-            }
-        } else {
-            if (current == NULL) { detruirelg(prefix); return 0; }
-            listeg cur = current->lsucc;
-            while (cur && !next_node) {
-                Noeud t = (Noeud)cur->data;
-                if (t->car == c) next_node = t;
-                cur = cur->succ;
-            }
-        }
-        if (next_node == NULL) { detruirelg(prefix); return 0; }
-        current = next_node;
-        prefix = adjtetelg(prefix, current);
-    }
-
-    // Reverse prefix (adjtetelg builds in reverse order)
-    listeg rev = NULL;
-    listeg tmp = prefix;
-    while (tmp) { rev = adjtetelg(rev, tmp->data); tmp = tmp->succ; }
-    detruirelg(prefix);
-
     Nat nc = 0;
-    _dfs_completion(current, rev, mots, &nc, max);
-    detruirelg(rev);
+    _completion_from_prefix(g, s, 0, mot_len, NULL, NULL, mots, &nc, max);
     return nc;
 }
 
